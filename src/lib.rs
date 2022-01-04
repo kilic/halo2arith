@@ -87,30 +87,28 @@ impl<F: FieldExt> AssignedValue<F> {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnassignedValue<F: FieldExt> {
-    pub value: Option<F>,
-}
+pub struct UnassignedValue<F: FieldExt>(Option<F>);
 
 impl<F: FieldExt> From<Option<F>> for UnassignedValue<F> {
     fn from(value: Option<F>) -> Self {
-        UnassignedValue { value }
+        UnassignedValue(value)
     }
 }
 
 impl<F: FieldExt> UnassignedValue<F> {
-    pub fn new(value: Option<F>) -> Self {
-        UnassignedValue { value }
-    }
+    // pub fn value(&self) -> Result<F, Error> {
+    //     Ok(self.0.clone().ok_or(Error::Synthesis)?)
+    // }
 
-    pub fn value(&self) -> Result<F, Error> {
-        Ok(self.value.clone().ok_or(Error::Synthesis)?)
+    pub fn value(&self) -> Option<F> {
+        self.0.clone()
     }
 
     pub fn decompose(&self, number_of_limbs: usize, bit_len: usize) -> Option<Vec<F>> {
-        self.value.map(|e| decompose(e, number_of_limbs, bit_len))
+        self.0.map(|e| decompose(e, number_of_limbs, bit_len))
     }
 
     pub fn assign(&self, cell: Cell) -> AssignedValue<F> {
-        AssignedValue::new(cell, self.value)
+        AssignedValue::new(cell, self.0)
     }
 }
