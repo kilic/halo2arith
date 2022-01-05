@@ -1,6 +1,6 @@
 # Main Gate
 
-`maingate` implements various standart like plonk arithmetic gates for halo2 backend.
+`maingate` implements various standart like plonk arithmetic for halo2 backend. `maingate` trait has many primitives such as arithemtic operations, assignments, assertions and branching instructions.
 
 Currently one four width gate one five width gate is available with following expressions:
 
