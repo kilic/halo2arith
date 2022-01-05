@@ -1254,7 +1254,7 @@ mod tests {
     use halo2::pasta::Fp;
     use halo2::plonk::{Circuit, ConstraintSystem, Error};
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone)]
     struct TestCircuitConfig {
         main_gate_config: MainGateConfig,
     }
@@ -1689,22 +1689,17 @@ mod tests {
                         let zero = F::zero();
 
                         let assigned_one =
-                            main_gate.assign_bit(&mut region, &Some(one).into(), offset)?;
+                            &main_gate.assign_bit(&mut region, &Some(one).into(), offset)?;
 
                         let assigned_zero =
-                            main_gate.assign_bit(&mut region, &Some(zero).into(), offset)?;
+                            &main_gate.assign_bit(&mut region, &Some(zero).into(), offset)?;
 
                         // assert_equal_to_constant
 
                         let val = F::rand();
                         let assigned =
-                            main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
-                        main_gate.assert_equal_to_constant(
-                            &mut region,
-                            assigned.clone(),
-                            val,
-                            offset,
-                        )?;
+                            &main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
+                        main_gate.assert_equal_to_constant(&mut region, assigned, val, offset)?;
                         main_gate.assert_not_zero(&mut region, assigned, offset)?;
 
                         // assert_equal
@@ -1734,15 +1729,10 @@ mod tests {
                         let assigned_1 =
                             main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
                         let is_equal =
-                            main_gate.is_equal(&mut region, assigned_0, assigned_1, offset)?;
+                            &main_gate.is_equal(&mut region, assigned_0, assigned_1, offset)?;
 
-                        main_gate.assert_one(&mut region, is_equal.clone(), offset)?;
-                        main_gate.assert_equal(
-                            &mut region,
-                            is_equal,
-                            assigned_one.clone(),
-                            offset,
-                        )?;
+                        main_gate.assert_one(&mut region, is_equal, offset)?;
+                        main_gate.assert_equal(&mut region, is_equal, assigned_one, offset)?;
 
                         let val_0 = F::rand();
                         let val_1 = F::rand();
@@ -1751,32 +1741,22 @@ mod tests {
                         let assigned_1 =
                             main_gate.assign_value(&mut region, &Some(val_1).into(), offset)?;
                         let is_equal =
-                            main_gate.is_equal(&mut region, assigned_0, assigned_1, offset)?;
+                            &main_gate.is_equal(&mut region, assigned_0, assigned_1, offset)?;
 
-                        main_gate.assert_zero(&mut region, is_equal.clone(), offset)?;
-                        main_gate.assert_equal(
-                            &mut region,
-                            is_equal,
-                            assigned_zero.clone(),
-                            offset,
-                        )?;
+                        main_gate.assert_zero(&mut region, is_equal, offset)?;
+                        main_gate.assert_equal(&mut region, is_equal, assigned_zero, offset)?;
 
                         // is_zero
 
                         let val = F::rand();
                         let assigned =
                             main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
-                        let is_zero = main_gate.is_zero(&mut region, assigned, offset)?;
-                        main_gate.assert_zero(&mut region, is_zero.clone(), offset)?;
-                        main_gate.assert_equal(
-                            &mut region,
-                            is_zero,
-                            assigned_zero.clone(),
-                            offset,
-                        )?;
+                        let is_zero = &main_gate.is_zero(&mut region, assigned, offset)?;
+                        main_gate.assert_zero(&mut region, is_zero, offset)?;
+                        main_gate.assert_equal(&mut region, is_zero, assigned_zero, offset)?;
 
-                        let is_zero = main_gate.is_zero(&mut region, assigned_zero, offset)?;
-                        main_gate.assert_one(&mut region, is_zero.clone(), offset)?;
+                        let is_zero = &main_gate.is_zero(&mut region, assigned_zero, offset)?;
+                        main_gate.assert_one(&mut region, is_zero, offset)?;
                         main_gate.assert_equal(&mut region, is_zero, assigned_one, offset)?;
                     }
 
@@ -1998,13 +1978,12 @@ mod tests {
                     let b = Some(b);
                     let cond = Some(cond);
 
-                    let a = main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
-                    let b = main_gate.assign_value(&mut region, &b.into(), &mut offset)?;
+                    let a = &main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
+                    let b = &main_gate.assign_value(&mut region, &b.into(), &mut offset)?;
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
-                    let selected =
-                        main_gate.cond_select(&mut region, a, b.clone(), &cond, &mut offset)?;
+                    let selected = main_gate.cond_select(&mut region, a, b, &cond, &mut offset)?;
                     main_gate.assert_equal(&mut region, b, selected, &mut offset)?;
 
                     let a = F::rand();
@@ -2015,13 +1994,12 @@ mod tests {
                     let b = Some(b);
                     let cond = Some(cond);
 
-                    let a = main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
-                    let b = main_gate.assign_value(&mut region, &b.into(), &mut offset)?;
+                    let a = &main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
+                    let b = &main_gate.assign_value(&mut region, &b.into(), &mut offset)?;
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
-                    let selected =
-                        main_gate.cond_select(&mut region, a.clone(), b, &cond, &mut offset)?;
+                    let selected = main_gate.cond_select(&mut region, a, b, &cond, &mut offset)?;
                     main_gate.assert_equal(&mut region, a, selected, &mut offset)?;
 
                     let a = F::rand();
@@ -2032,15 +2010,15 @@ mod tests {
                     let b_unassigned = Some(b_constant);
                     let cond = Some(cond);
 
-                    let a = main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
+                    let a = &main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
                     let b_assigned =
-                        main_gate.assign_value(&mut region, &b_unassigned.into(), &mut offset)?;
+                        &main_gate.assign_value(&mut region, &b_unassigned.into(), &mut offset)?;
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
                     let selected = main_gate.cond_select_or_assign(
                         &mut region,
-                        a.clone(),
+                        a,
                         b_constant,
                         &cond,
                         &mut offset,
@@ -2054,13 +2032,13 @@ mod tests {
                     let a = Some(a);
                     let cond = Some(cond);
 
-                    let a = main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
+                    let a = &main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
                     let selected = main_gate.cond_select_or_assign(
                         &mut region,
-                        a.clone(),
+                        a,
                         b_constant,
                         &cond,
                         &mut offset,
