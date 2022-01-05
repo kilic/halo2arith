@@ -54,6 +54,16 @@ impl<F: FieldExt> Assigned<F> for AssignedCondition<F> {
     }
 }
 
+impl<F: FieldExt> Assigned<F> for &AssignedCondition<F> {
+    fn value(&self) -> Option<F> {
+        self.bool_value
+            .map(|value| if value { F::one() } else { F::zero() })
+    }
+    fn cell(&self) -> Cell {
+        self.cell
+    }
+}
+
 type AssignedBit<F> = AssignedCondition<F>;
 
 #[derive(Debug, Clone)]
@@ -80,6 +90,15 @@ impl<F: FieldExt> Assigned<F> for AssignedValue<F> {
     }
 }
 
+impl<F: FieldExt> Assigned<F> for &AssignedValue<F> {
+    fn value(&self) -> Option<F> {
+        self.value
+    }
+    fn cell(&self) -> Cell {
+        self.cell
+    }
+}
+
 impl<F: FieldExt> AssignedValue<F> {
     fn new(cell: Cell, value: Option<F>) -> Self {
         AssignedValue { value, cell }
@@ -96,10 +115,6 @@ impl<F: FieldExt> From<Option<F>> for UnassignedValue<F> {
 }
 
 impl<F: FieldExt> UnassignedValue<F> {
-    // pub fn value(&self) -> Result<F, Error> {
-    //     Ok(self.0.clone().ok_or(Error::Synthesis)?)
-    // }
-
     pub fn value(&self) -> Option<F> {
         self.0.clone()
     }
