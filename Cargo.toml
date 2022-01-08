@@ -1,5 +1,5 @@
 [package]
-name = "maingate"
+name = "halo2arith"
 version = "0.1.0"
 authors = ["kilic <kiliconu@itu.edu.tr>"]
 edition = "2018"
