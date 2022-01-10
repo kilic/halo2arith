@@ -34,7 +34,7 @@ impl<F: FieldExt> From<AssignedValue<F>> for AssignedCondition<F> {
 }
 
 impl<F: FieldExt> AssignedCondition<F> {
-    fn new(cell: Cell, value: Option<F>) -> Self {
+    pub fn new(cell: Cell, value: Option<F>) -> Self {
         let bool_value = value.map(|value| if value == F::zero() { false } else { true });
         AssignedCondition {
             bool_value,
@@ -100,7 +100,7 @@ impl<F: FieldExt> Assigned<F> for &AssignedValue<F> {
 }
 
 impl<F: FieldExt> AssignedValue<F> {
-    fn new(cell: Cell, value: Option<F>) -> Self {
+    pub fn new(cell: Cell, value: Option<F>) -> Self {
         AssignedValue { value, cell }
     }
 }
