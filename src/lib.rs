@@ -9,6 +9,9 @@ use utils::decompose;
 pub mod main_gate;
 pub mod utils;
 
+pub use halo2;
+pub use main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
+
 pub trait Assigned<F: FieldExt> {
     fn value(&self) -> Option<F>;
     fn constrain_equal(&self, region: &mut Region<'_, F>, new_cell: Cell) -> Result<(), Error> {
