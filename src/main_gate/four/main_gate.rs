@@ -1,7 +1,7 @@
 use crate::main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
 use crate::{Assigned, AssignedBit, AssignedCondition, AssignedValue, UnassignedValue};
 use halo2::arithmetic::FieldExt;
-use halo2::circuit::{Cell, Region};
+use halo2::circuit::Region;
 use halo2::plonk::{Advice, Column, ConstraintSystem, Error, Fixed};
 use halo2::poly::Rotation;
 use std::marker::PhantomData;
@@ -26,18 +26,12 @@ impl MainGateColumn {
     }
 }
 
-pub struct AssignedCells {
-    pub a: Cell,
-    pub b: Cell,
-    pub c: Cell,
-    pub d: Cell,
-}
-
-impl AssignedCells {
-    fn new(a: Cell, b: Cell, c: Cell, d: Cell) -> Self {
-        AssignedCells { a, b, c, d }
-    }
-}
+type CombinedValues<F> = (
+    AssignedValue<F>,
+    AssignedValue<F>,
+    AssignedValue<F>,
+    AssignedValue<F>,
+);
 
 #[derive(Clone, Debug)]
 pub struct MainGateConfig {
@@ -73,7 +67,7 @@ impl<F: FieldExt> From<CombinationOptionCommon<F>> for CombinationOption<F> {
 
 impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
     type CombinationOption = CombinationOption<F>;
-    type AssignedCells = AssignedCells;
+    type CombinedValues = CombinedValues<F>;
     type MainGateColumn = MainGateColumn;
 
     fn add(
@@ -109,7 +103,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, res, _) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -122,7 +116,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn add_constant(
@@ -137,7 +131,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, res, _) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -150,7 +144,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn neg_with_constant(
@@ -165,7 +159,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, res, _) = self.combine(
             region,
             [
                 Term::assigned_to_sub(&a),
@@ -178,7 +172,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn sub_with_constant(
@@ -194,7 +188,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, res, _) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -207,7 +201,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn sub_sub_with_constant(
@@ -224,7 +218,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, _, res) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -237,7 +231,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn mul2(
@@ -251,7 +245,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, res, _) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -264,7 +258,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn mul3(
@@ -278,7 +272,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, _, res) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -291,7 +285,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.d, c))
+        Ok(res)
     }
 
     fn mul(
@@ -306,7 +300,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, res, _) = self.combine(
             region,
             [
                 Term::assigned_to_mul(&a),
@@ -319,7 +313,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.c, c))
+        Ok(res)
     }
 
     fn div_unsafe(
@@ -338,7 +332,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, res, _, _) = self.combine(
             region,
             [
                 Term::assigned_to_mul(&b),
@@ -351,7 +345,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.b, c))
+        Ok(res)
     }
 
     fn div(
@@ -385,7 +379,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, inverse, _, _) = self.combine(
             region,
             [
                 Term::assigned_to_mul(&a),
@@ -398,7 +392,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        Ok(AssignedValue::new(cells.b, inverse))
+        Ok(inverse)
     }
 
     fn invert(
@@ -437,7 +431,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         // | A | B  | C | D |
         // | - | -- | - | - |
         // | a | a' | r | - |
-        let cells = self.combine(
+        let (_, a_inv, _, _) = self.combine(
             region,
             [
                 Term::assigned_to_mul(&a),
@@ -449,7 +443,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             offset,
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
-        let a_inv = AssignedValue::new(cells.b, a_inv);
 
         // r * a' - r = 0
         // | A | B  | C | D |
@@ -551,7 +544,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, _, u, _) = self.combine(
             region,
             [
                 Term::assigned_to_sub(&r),
@@ -563,8 +556,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             offset,
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
-
-        let u = AssignedValue::new(cells.c, u);
 
         // 0 = u * dif + r - 1
         // | A   | B | C | D |
@@ -687,7 +678,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         let zero = F::zero();
 
         // c + c1 * c2 - c1 - c2 = 0
-        let cells = self.combine(
+        let (_, _, c, _) = self.combine(
             region,
             [
                 Term::assigned_to_sub(c1),
@@ -700,7 +691,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        Ok(AssignedCondition::new(cells.c, c))
+        Ok(c.into())
     }
 
     fn cond_and(
@@ -717,7 +708,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
 
         let zero = F::zero();
 
-        let cells = self.combine(
+        let (_, _, c, _) = self.combine(
             region,
             [
                 Term::assigned_to_mul(c1),
@@ -730,7 +721,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        Ok(AssignedCondition::new(cells.c, c))
+        Ok(c.into())
     }
 
     fn cond_not(
@@ -746,7 +737,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let cells = self.combine(
+        let (_, b, _, _) = self.combine(
             region,
             [
                 Term::assigned_to_add(c),
@@ -759,7 +750,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        Ok(AssignedCondition::new(cells.b, not_c))
+        Ok(b.into())
     }
 
     fn cond_select(
@@ -789,7 +780,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         };
 
         // a - b - dif = 0
-        let cells = self.combine(
+        let (_, _, _, dif) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -802,13 +793,11 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        let dif = &mut AssignedValue::new(cells.d, dif);
-
         // cond * dif + b + a_or_b  = 0
-        let cells = self.combine(
+        let (_, _, _, res) = self.combine(
             region,
             [
-                Term::assigned_to_mul(dif),
+                Term::assigned_to_mul(&dif),
                 Term::assigned_to_mul(cond),
                 Term::assigned_to_add(&b),
                 Term::unassigned_to_sub(res),
@@ -817,8 +806,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             offset,
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
-
-        let res = AssignedValue::new(cells.d, res);
 
         Ok(res)
     }
@@ -850,7 +837,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         };
 
         // a - b - dif = 0
-        let cells = self.combine(
+        let (_, _, _, dif) = self.combine(
             region,
             [
                 Term::assigned_to_add(&a),
@@ -863,13 +850,11 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
 
-        let dif = &mut AssignedValue::new(cells.d, dif);
-
         // cond * dif + b + a_or_b  = 0
-        let cells = self.combine(
+        let (_, _, _, res) = self.combine(
             region,
             [
-                Term::assigned_to_mul(dif),
+                Term::assigned_to_mul(&dif),
                 Term::assigned_to_mul(cond),
                 Term::Zero,
                 Term::unassigned_to_sub(res),
@@ -878,8 +863,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             offset,
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
-
-        let res = AssignedValue::new(cells.d, res);
 
         Ok(res)
     }
@@ -897,7 +880,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         // | --- | --- | --- | - |
         // | val | val | val | - |
 
-        let cells = self.combine(
+        let (a, b, c, _) = self.combine(
             region,
             [
                 Term::unassigned_to_mul(bit.value()),
@@ -910,11 +893,10 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        region.constrain_equal(cells.a, cells.b)?;
-        region.constrain_equal(cells.b, cells.c)?;
-        *offset = *offset + 1;
+        region.constrain_equal(a.cell(), b.cell())?;
+        region.constrain_equal(b.cell(), c.cell())?;
 
-        Ok(AssignedBit::<F>::new(cells.c, bit.value()))
+        Ok(c.into())
     }
 
     fn assert_bit(
@@ -930,7 +912,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         // | --- | --- | --- | - |
         // | val | val | val | - |
 
-        let cells = self.combine(
+        let (a, b, c, _) = self.combine(
             region,
             [
                 Term::assigned_to_mul(&a),
@@ -943,9 +925,8 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
 
-        region.constrain_equal(cells.a, cells.b)?;
-        region.constrain_equal(cells.b, cells.c)?;
-        *offset = *offset + 1;
+        region.constrain_equal(a.cell(), b.cell())?;
+        region.constrain_equal(b.cell(), c.cell())?;
 
         Ok(())
     }
@@ -964,7 +945,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         // | --- | --- | --- | - |
         // | val | val | -   | - |
 
-        let one = F::one();
         self.combine(
             region,
             [
@@ -973,7 +953,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 Term::Zero,
                 Term::Zero,
             ],
-            one,
+            F::one(),
             offset,
             CombinationOptionCommon::OneLinerMul.into(),
         )?;
@@ -988,7 +968,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         constant_aux: F,
         offset: &mut usize,
         option: CombinationOption<F>,
-    ) -> Result<AssignedCells, Error> {
+    ) -> Result<CombinedValues<F>, Error> {
         let (c_0, u_0) = (terms[0].coeff(), terms[0].base());
         let (c_1, u_1) = (terms[1].coeff(), terms[1].base());
         let (c_2, u_2) = (terms[2].coeff(), terms[2].base());
@@ -1091,7 +1071,12 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
 
         *offset = *offset + 1;
 
-        Ok(AssignedCells::new(cell_0, cell_1, cell_2, cell_3))
+        let a_0 = AssignedValue::new(cell_0, c_0);
+        let a_1 = AssignedValue::new(cell_1, c_1);
+        let a_2 = AssignedValue::new(cell_2, c_2);
+        let a_3 = AssignedValue::new(cell_3, c_3);
+
+        Ok((a_0, a_1, a_2, a_3))
     }
 
     fn assign_value(
@@ -1137,6 +1122,28 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         self.assign_to_column(region, unassigned, MainGateColumn::D, offset)
     }
 
+    fn nand(
+        &self,
+        region: &mut Region<'_, F>,
+        a: impl Assigned<F>,
+        b: impl Assigned<F>,
+        offset: &mut usize,
+    ) -> Result<(), Error> {
+        self.combine(
+            region,
+            [
+                Term::assigned_to_mul(&a),
+                Term::assigned_to_mul(&b),
+                Term::Zero,
+                Term::Zero,
+            ],
+            F::zero(),
+            offset,
+            CombinationOptionCommon::OneLinerMul.into(),
+        )?;
+        Ok(())
+    }
+
     fn no_operation(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error> {
         region.assign_fixed(|| "s_mul", self.config.s_mul, *offset, || Ok(F::zero()))?;
         region.assign_fixed(|| "sc", self.config.sc, *offset, || Ok(F::zero()))?;
@@ -1149,19 +1156,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             self.config.s_constant,
             *offset,
             || Ok(F::zero()),
-        )?;
-        *offset = *offset + 1;
-        Ok(())
-    }
-
-    #[cfg(test)]
-    fn break_here(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error> {
-        self.combine(
-            region,
-            [Term::Zero, Term::Zero, Term::Zero, Term::Zero],
-            F::one(),
-            offset,
-            CombinationOptionCommon::OneLinerAdd.into(),
         )?;
         *offset = *offset + 1;
         Ok(())
@@ -1247,7 +1241,7 @@ mod tests {
 
     use super::{MainGate, MainGateConfig, Term};
     use crate::main_gate::{CombinationOptionCommon, MainGateInstructions};
-    use crate::{AssignedCondition, AssignedValue, UnassignedValue};
+    use crate::{AssignedCondition, UnassignedValue};
     use halo2::arithmetic::FieldExt;
     use halo2::circuit::{Layouter, SimpleFloorPlanner};
     use halo2::dev::MockProver;
@@ -1312,7 +1306,7 @@ mod tests {
                         Term::Unassigned(Some(a_3), r_3),
                     ];
 
-                    let cells = main_gate.combine(
+                    let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
                         aux,
@@ -1320,16 +1314,11 @@ mod tests {
                         CombinationOptionCommon::OneLinerAdd.into(),
                     )?;
 
-                    let u_0 = &AssignedValue::new(cells.a, Some(a_0));
-                    let u_1 = &AssignedValue::new(cells.b, Some(a_1));
-                    let u_2 = &AssignedValue::new(cells.c, Some(a_2));
-                    let u_3 = &AssignedValue::new(cells.d, Some(a_3));
-
                     let terms = [
-                        Term::Assigned(u_0, r_0),
-                        Term::Assigned(u_1, r_1),
-                        Term::Assigned(u_2, r_2),
-                        Term::Assigned(u_3, r_3),
+                        Term::Assigned(&u_0, r_0),
+                        Term::Assigned(&u_1, r_1),
+                        Term::Assigned(&u_2, r_2),
+                        Term::Assigned(&u_3, r_3),
                     ];
 
                     main_gate.combine(
@@ -1354,7 +1343,7 @@ mod tests {
                         Term::Unassigned(Some(a_3), r_3),
                     ];
 
-                    let cells = main_gate.combine(
+                    let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
                         aux,
@@ -1362,16 +1351,11 @@ mod tests {
                         CombinationOptionCommon::OneLinerMul.into(),
                     )?;
 
-                    let u_0 = &AssignedValue::new(cells.a, Some(a_0));
-                    let u_1 = &AssignedValue::new(cells.b, Some(a_1));
-                    let u_2 = &AssignedValue::new(cells.c, Some(a_2));
-                    let u_3 = &AssignedValue::new(cells.d, Some(a_3));
-
                     let terms = [
-                        Term::Assigned(u_0, r_0),
-                        Term::Assigned(u_1, r_1),
-                        Term::Assigned(u_2, r_2),
-                        Term::Assigned(u_3, r_3),
+                        Term::Assigned(&u_0, r_0),
+                        Term::Assigned(&u_1, r_1),
+                        Term::Assigned(&u_2, r_2),
+                        Term::Assigned(&u_3, r_3),
                     ];
 
                     main_gate.combine(
@@ -1403,7 +1387,7 @@ mod tests {
                         Term::Unassigned(Some(a_3), r_3),
                     ];
 
-                    let cells = main_gate.combine(
+                    let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
                         aux,
@@ -1413,16 +1397,11 @@ mod tests {
 
                     main_gate.assign_to_acc(&mut region, &Some(a_next).into(), offset)?;
 
-                    let u_0 = &AssignedValue::new(cells.a, Some(a_0));
-                    let u_1 = &AssignedValue::new(cells.b, Some(a_1));
-                    let u_2 = &AssignedValue::new(cells.c, Some(a_2));
-                    let u_3 = &AssignedValue::new(cells.d, Some(a_3));
-
                     let terms = [
-                        Term::Assigned(u_0, r_0),
-                        Term::Assigned(u_1, r_1),
-                        Term::Assigned(u_2, r_2),
-                        Term::Assigned(u_3, r_3),
+                        Term::Assigned(&u_0, r_0),
+                        Term::Assigned(&u_1, r_1),
+                        Term::Assigned(&u_2, r_2),
+                        Term::Assigned(&u_3, r_3),
                     ];
 
                     main_gate.combine(
@@ -1462,7 +1441,7 @@ mod tests {
                         Term::Unassigned(Some(a_3), r_3),
                     ];
 
-                    let cells = main_gate.combine(
+                    let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
                         aux,
@@ -1472,16 +1451,11 @@ mod tests {
 
                     main_gate.assign_to_acc(&mut region, &Some(a_next).into(), offset)?;
 
-                    let u_0 = &AssignedValue::new(cells.a, Some(a_0));
-                    let u_1 = &AssignedValue::new(cells.b, Some(a_1));
-                    let u_2 = &AssignedValue::new(cells.c, Some(a_2));
-                    let u_3 = &AssignedValue::new(cells.d, Some(a_3));
-
                     let terms = [
-                        Term::Assigned(u_0, r_0),
-                        Term::Assigned(u_1, r_1),
-                        Term::Assigned(u_2, r_2),
-                        Term::Assigned(u_3, r_3),
+                        Term::Assigned(&u_0, r_0),
+                        Term::Assigned(&u_1, r_1),
+                        Term::Assigned(&u_2, r_2),
+                        Term::Assigned(&u_3, r_3),
                     ];
 
                     main_gate.combine(
@@ -1510,7 +1484,7 @@ mod tests {
                         Term::Unassigned(Some(a_3), r_3),
                     ];
 
-                    let cells = main_gate.combine(
+                    let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
                         aux,
@@ -1520,16 +1494,11 @@ mod tests {
 
                     main_gate.assign_to_acc(&mut region, &Some(a_next).into(), offset)?;
 
-                    let u_0 = &AssignedValue::new(cells.a, Some(a_0));
-                    let u_1 = &AssignedValue::new(cells.b, Some(a_1));
-                    let u_2 = &AssignedValue::new(cells.c, Some(a_2));
-                    let u_3 = &AssignedValue::new(cells.d, Some(a_3));
-
                     let terms = [
-                        Term::Assigned(u_0, r_0),
-                        Term::Assigned(u_1, r_1),
-                        Term::Assigned(u_2, r_2),
-                        Term::Assigned(u_3, r_3),
+                        Term::Assigned(&u_0, r_0),
+                        Term::Assigned(&u_1, r_1),
+                        Term::Assigned(&u_2, r_2),
+                        Term::Assigned(&u_3, r_3),
                     ];
 
                     main_gate.combine(

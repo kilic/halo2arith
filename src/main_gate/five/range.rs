@@ -230,7 +230,7 @@ impl<F: FieldExt> RangeInstructions<F> for RangeChip<F> {
                     .selector
                     .enable(region, *offset)?;
 
-                let cells = main_gate.combine(
+                let (_, _, _, assigned, _) = main_gate.combine(
                     region,
                     [
                         Term::Zero,
@@ -244,20 +244,18 @@ impl<F: FieldExt> RangeInstructions<F> for RangeChip<F> {
                     CombinationOptionCommon::OneLinerAdd.into(),
                 )?;
 
-                Ok(input.assign(cells.d))
-
-                // main_gate.assign_to_acc(region, &intermediate_x.into(), offset)
+                Ok(assigned)
             } else {
-                let term_4 = Term::Unassigned(input.value(), -one);
+                let unassigned_input = Term::Unassigned(input.value(), -one);
                 let combination_option = CombinationOptionCommon::OneLinerAdd.into();
-                let cells = main_gate.combine(
+                let (_, _, _, _, assigned) = main_gate.combine(
                     region,
-                    [term_0, term_1, term_2, term_3, term_4],
+                    [term_0, term_1, term_2, term_3, unassigned_input],
                     zero,
                     offset,
                     combination_option,
                 )?;
-                Ok(input.assign(cells.c))
+                Ok(assigned)
             }
         }
     }
@@ -418,11 +416,10 @@ impl<F: FieldExt> RangeChip<F> {
 #[cfg(test)]
 mod tests {
 
+    use super::{RangeChip, RangeConfig, RangeInstructions};
     use crate::main_gate::five::main_gate::MainGate;
     use crate::main_gate::five::NUMBER_OF_LOOKUP_LIMBS;
-    use crate::UnassignedValue;
-
-    use super::{RangeChip, RangeConfig, RangeInstructions};
+    use crate::{MainGateInstructions, UnassignedValue};
     use halo2::arithmetic::FieldExt;
     use halo2::circuit::{Layouter, SimpleFloorPlanner};
     use halo2::dev::MockProver;
@@ -434,12 +431,7 @@ mod tests {
         range_config: RangeConfig,
     }
 
-    #[derive(Default, Clone, Debug)]
-    struct TestCircuit<F: FieldExt> {
-        input: Vec<(usize, Option<F>)>,
-    }
-
-    impl<F: FieldExt> TestCircuit<F> {
+    impl TestCircuitConfig {
         fn fine_tune_bit_lengths() -> Vec<usize> {
             (1..Self::base_bit_len()).map(|i| i).collect()
         }
@@ -447,6 +439,27 @@ mod tests {
         fn base_bit_len() -> usize {
             16
         }
+
+        fn new<F: FieldExt>(meta: &mut ConstraintSystem<F>) -> Self {
+            let main_gate_config = MainGate::<F>::configure(meta);
+            let fine_tune_bit_lengths = Self::fine_tune_bit_lengths();
+            let range_config =
+                RangeChip::<F>::configure(meta, &main_gate_config, fine_tune_bit_lengths);
+            Self { range_config }
+        }
+
+        fn main_gate<F: FieldExt>(&self) -> MainGate<F> {
+            MainGate::<F>::new(self.range_config.main_gate_config.clone())
+        }
+
+        fn range_chip<F: FieldExt>(&self) -> RangeChip<F> {
+            RangeChip::<F>::new(self.range_config.clone(), Self::base_bit_len())
+        }
+    }
+
+    #[derive(Default, Clone, Debug)]
+    struct TestCircuit<F: FieldExt> {
+        input: Vec<(usize, Option<F>)>,
     }
 
     impl<F: FieldExt> Circuit<F> for TestCircuit<F> {
@@ -458,11 +471,7 @@ mod tests {
         }
 
         fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
-            let main_gate_config = MainGate::<F>::configure(meta);
-            let fine_tune_bit_lengths = Self::fine_tune_bit_lengths();
-            let range_config =
-                RangeChip::<F>::configure(meta, &main_gate_config, fine_tune_bit_lengths);
-            TestCircuitConfig { range_config }
+            TestCircuitConfig::new(meta)
         }
 
         fn synthesize(
@@ -470,7 +479,8 @@ mod tests {
             config: Self::Config,
             mut layouter: impl Layouter<F>,
         ) -> Result<(), Error> {
-            let range_chip = RangeChip::<F>::new(config.range_config.clone(), Self::base_bit_len());
+            let range_chip = config.range_chip();
+            let main_gate = config.main_gate();
 
             layouter.assign_region(
                 || "region 0",
@@ -480,12 +490,21 @@ mod tests {
                     for value in self.input.iter() {
                         let bit_len = value.0;
                         let value = value.1;
-                        range_chip.range_value(
+
+                        let a_0 = main_gate.assign_value(
+                            &mut region,
+                            &UnassignedValue(value),
+                            &mut offset,
+                        )?;
+
+                        let a_1 = range_chip.range_value(
                             &mut region,
                             &UnassignedValue(value),
                             bit_len,
                             &mut offset,
                         )?;
+
+                        main_gate.assert_equal(&mut region, a_0, a_1, &mut offset)?;
                     }
 
                     Ok(())
@@ -502,8 +521,8 @@ mod tests {
     }
 
     #[test]
-    fn test_range_circuit_xxx() {
-        let base_bit_len = TestCircuit::<Fp>::base_bit_len();
+    fn test_range_circuit() {
+        let base_bit_len = TestCircuitConfig::base_bit_len();
         #[cfg(not(feature = "no_lookup"))]
         let k: u32 = (base_bit_len + 1) as u32;
         #[cfg(feature = "no_lookup")]

@@ -9,6 +9,7 @@ use crate::{Assigned, AssignedBit, AssignedCondition, AssignedValue, UnassignedV
 pub mod five;
 pub mod four;
 
+#[derive(Copy, Clone)]
 pub enum Term<'a, F: FieldExt> {
     Assigned(&'a dyn Assigned<F>, F),
     Unassigned(Option<F>, F),
@@ -74,8 +75,8 @@ pub enum CombinationOptionCommon<F: FieldExt> {
 }
 
 pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
-    type CombinationOption;
-    type AssignedCells;
+    type CombinationOption: From<CombinationOptionCommon<F>>;
+    type CombinedValues;
     type MainGateColumn;
 
     fn assign_value(
@@ -266,7 +267,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
         b: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
 
@@ -274,7 +275,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         &self,
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
 
@@ -291,7 +292,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
         b: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
 
@@ -301,7 +302,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         a: impl Assigned<F>,
         b_0: impl Assigned<F>,
         b_1: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
 
@@ -309,9 +310,10 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         &self,
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
+
     fn mul2(
         &self,
         region: &mut Region<'_, F>,
@@ -334,17 +336,34 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
 
-    fn no_operation(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error>;
-
     fn combine(
         &self,
         region: &mut Region<'_, F>,
         terms: [Term<F>; WIDTH],
-        constant_aux: F,
+        constant: F,
         offset: &mut usize,
         options: Self::CombinationOption,
-    ) -> Result<Self::AssignedCells, Error>;
+    ) -> Result<Self::CombinedValues, Error>;
+
+    fn nand(
+        &self,
+        region: &mut Region<'_, F>,
+        a: impl Assigned<F>,
+        b: impl Assigned<F>,
+        offset: &mut usize,
+    ) -> Result<(), Error>;
+
+    fn no_operation(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error>;
 
     #[cfg(test)]
-    fn break_here(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error>;
+    fn break_here(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error> {
+        self.combine(
+            region,
+            [Term::Zero; WIDTH],
+            F::one(),
+            offset,
+            CombinationOptionCommon::OneLinerAdd.into(),
+        )?;
+        Ok(())
+    }
 }
