@@ -16,18 +16,6 @@ pub enum MainGateColumn {
     E = 4,
 }
 
-impl MainGateColumn {
-    fn index(&self) -> usize {
-        match *self {
-            MainGateColumn::A => MainGateColumn::A as usize,
-            MainGateColumn::B => MainGateColumn::B as usize,
-            MainGateColumn::C => MainGateColumn::C as usize,
-            MainGateColumn::D => MainGateColumn::D as usize,
-            MainGateColumn::E => MainGateColumn::E as usize,
-        }
-    }
-}
-
 pub(crate) type CombinedValues<F> = (
     AssignedValue<F>,
     AssignedValue<F>,
@@ -138,10 +126,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(a + constant),
-            _ => None,
-        };
+        let c = a.value().map(|a| a + constant);
 
         let (_, _, c, _, _) = self.combine(
             region,
@@ -167,10 +152,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(-a + constant),
-            _ => None,
-        };
+        let c = a.value().map(|a| -a + constant);
 
         let (_, _, c, _, _) = self.combine(
             region,
@@ -256,10 +238,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         a: impl Assigned<F>,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(a + a),
-            _ => None,
-        };
+        let c = a.value().map(|a| a + a);
 
         let (_, _, c, _, _) = self.combine(
             region,
@@ -284,10 +263,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         a: impl Assigned<F>,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(a + a + a),
-            _ => None,
-        };
+        let c = a.value().map(|a| a + a + a);
 
         let (_, _, _, d, _) = self.combine(
             region,
@@ -763,11 +739,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         offset: &mut usize,
     ) -> Result<AssignedCondition<F>, Error> {
         let one = F::one();
-
-        let not_c = match c.value() {
-            Some(c) => Some(one - c),
-            _ => None,
-        };
+        let not_c = c.value().map(|c| one - c);
 
         let (_, b, _, _, _) = self.combine(
             region,
@@ -1021,7 +993,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_0",
                 self.config.a,
                 *offset,
-                || Ok(c_0.ok_or(Error::Synthesis)?),
+                || c_0.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_1 = region
@@ -1029,7 +1001,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_1",
                 self.config.b,
                 *offset,
-                || Ok(c_1.ok_or(Error::Synthesis)?),
+                || c_1.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_2 = region
@@ -1037,7 +1009,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_2",
                 self.config.c,
                 *offset,
-                || Ok(c_2.ok_or(Error::Synthesis)?),
+                || c_2.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_3 = region
@@ -1045,7 +1017,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_3",
                 self.config.d,
                 *offset,
-                || Ok(c_3.ok_or(Error::Synthesis)?),
+                || c_3.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_4 = region
@@ -1053,7 +1025,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_4",
                 self.config.e,
                 *offset,
-                || Ok(c_4.ok_or(Error::Synthesis)?),
+                || c_4.ok_or(Error::Synthesis),
             )?
             .cell();
 
@@ -1198,7 +1170,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         terms[3].constrain_equal(region, cell_3)?;
         terms[4].constrain_equal(region, cell_4)?;
 
-        *offset = *offset + 1;
+        *offset += 1;
 
         let a_0 = AssignedValue::new(cell_0, c_0);
         let a_1 = AssignedValue::new(cell_1, c_1);
@@ -1301,7 +1273,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             *offset,
             || Ok(F::zero()),
         )?;
-        *offset = *offset + 1;
+        *offset += 1;
         Ok(())
     }
 }

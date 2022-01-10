@@ -38,7 +38,7 @@ impl<F: FieldExt> From<AssignedValue<F>> for AssignedCondition<F> {
 
 impl<F: FieldExt> AssignedCondition<F> {
     pub fn new(cell: Cell, value: Option<F>) -> Self {
-        let bool_value = value.map(|value| if value == F::zero() { false } else { true });
+        let bool_value = value.map(|value| value != F::zero());
         AssignedCondition {
             bool_value,
             cell,
@@ -119,13 +119,13 @@ impl<F: FieldExt> From<Option<F>> for UnassignedValue<F> {
 
 impl<F: FieldExt> From<UnassignedValue<F>> for Option<F> {
     fn from(value: UnassignedValue<F>) -> Self {
-        value.0.clone()
+        value.0
     }
 }
 
 impl<F: FieldExt> UnassignedValue<F> {
     pub fn value(&self) -> Option<F> {
-        self.0.clone()
+        self.0
     }
 
     pub fn decompose(&self, number_of_limbs: usize, bit_len: usize) -> Option<Vec<F>> {

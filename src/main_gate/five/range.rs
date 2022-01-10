@@ -334,7 +334,7 @@ impl<F: FieldExt> RangeChip<F> {
         main_gate_config: &MainGateConfig,
         fine_tune_bit_lengths: Vec<usize>,
     ) -> RangeConfig {
-        let mut fine_tune_bit_lengths = fine_tune_bit_lengths.clone();
+        let mut fine_tune_bit_lengths = fine_tune_bit_lengths;
         fine_tune_bit_lengths.sort();
         fine_tune_bit_lengths.dedup();
         let fine_tune_bit_lengths: Vec<usize> = fine_tune_bit_lengths
@@ -355,25 +355,25 @@ impl<F: FieldExt> RangeChip<F> {
         #[cfg(not(feature = "no_lookup"))]
         {
             meta.lookup(|meta| {
-                let exp = meta.query_advice(a.into(), Rotation::cur());
+                let exp = meta.query_advice(a, Rotation::cur());
                 let s_range = meta.query_selector(s_dense_limb_range);
                 vec![(exp * s_range, dense_limb_range_table)]
             });
 
             meta.lookup(|meta| {
-                let exp = meta.query_advice(b.into(), Rotation::cur());
+                let exp = meta.query_advice(b, Rotation::cur());
                 let s_range = meta.query_selector(s_dense_limb_range);
                 vec![(exp * s_range, dense_limb_range_table)]
             });
 
             meta.lookup(|meta| {
-                let exp = meta.query_advice(c.into(), Rotation::cur());
+                let exp = meta.query_advice(c, Rotation::cur());
                 let s_range = meta.query_selector(s_dense_limb_range);
                 vec![(exp * s_range, dense_limb_range_table)]
             });
 
             meta.lookup(|meta| {
-                let exp = meta.query_advice(d.into(), Rotation::cur());
+                let exp = meta.query_advice(d, Rotation::cur());
                 let s_range = meta.query_selector(s_dense_limb_range);
                 vec![(exp * s_range, dense_limb_range_table)]
             });
@@ -387,17 +387,16 @@ impl<F: FieldExt> RangeChip<F> {
                 let column = meta.lookup_table_column();
 
                 meta.lookup(|meta| {
-                    let exp = meta.query_advice(b.into(), Rotation::cur());
+                    let exp = meta.query_advice(b, Rotation::cur());
                     let selector = meta.query_selector(selector);
                     vec![(exp * selector, column)]
                 });
 
-                let table_config = TableConfig {
+                TableConfig {
                     selector,
                     column,
                     bit_len: *bit_len,
-                };
-                table_config
+                }
             })
             .collect();
 
@@ -433,7 +432,7 @@ mod tests {
 
     impl TestCircuitConfig {
         fn fine_tune_bit_lengths() -> Vec<usize> {
-            (1..Self::base_bit_len()).map(|i| i).collect()
+            (1..Self::base_bit_len()).collect()
         }
 
         fn base_bit_len() -> usize {

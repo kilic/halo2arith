@@ -15,17 +15,6 @@ pub enum MainGateColumn {
     D = 3,
 }
 
-impl MainGateColumn {
-    fn index(&self) -> usize {
-        match *self {
-            MainGateColumn::A => MainGateColumn::A as usize,
-            MainGateColumn::B => MainGateColumn::B as usize,
-            MainGateColumn::C => MainGateColumn::C as usize,
-            MainGateColumn::D => MainGateColumn::D as usize,
-        }
-    }
-}
-
 type CombinedValues<F> = (
     AssignedValue<F>,
     AssignedValue<F>,
@@ -95,11 +84,11 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
         b: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
         let c = match (a.value(), b.value()) {
-            (Some(a), Some(b)) => Some(a + b + aux),
+            (Some(a), Some(b)) => Some(a + b + constant),
             _ => None,
         };
 
@@ -111,7 +100,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 Term::unassigned_to_sub(c),
                 Term::Zero,
             ],
-            aux,
+            constant,
             offset,
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
@@ -126,10 +115,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(a + constant),
-            _ => None,
-        };
+        let c = a.value().map(|a| a + constant);
 
         let (_, _, res, _) = self.combine(
             region,
@@ -151,13 +137,10 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         &self,
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(-a + aux),
-            _ => None,
-        };
+        let c = a.value().map(|a| -a + constant);
 
         let (_, _, res, _) = self.combine(
             region,
@@ -167,7 +150,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 Term::unassigned_to_sub(c),
                 Term::Zero,
             ],
-            aux,
+            constant,
             offset,
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
@@ -180,11 +163,11 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
         b: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
         let c = match (a.value(), b.value()) {
-            (Some(a), Some(b)) => Some(a - b + aux),
+            (Some(a), Some(b)) => Some(a - b + constant),
             _ => None,
         };
 
@@ -196,7 +179,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 Term::unassigned_to_sub(c),
                 Term::Zero,
             ],
-            aux,
+            constant,
             offset,
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
@@ -210,11 +193,11 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         a: impl Assigned<F>,
         b_0: impl Assigned<F>,
         b_1: impl Assigned<F>,
-        aux: F,
+        constant: F,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
         let c = match (a.value(), b_0.value(), b_1.value()) {
-            (Some(a), Some(b_0), Some(b_1)) => Some(a - b_0 - b_1 + aux),
+            (Some(a), Some(b_0), Some(b_1)) => Some(a - b_0 - b_1 + constant),
             _ => None,
         };
 
@@ -226,7 +209,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 Term::assigned_to_sub(&b_1),
                 Term::unassigned_to_sub(c),
             ],
-            aux,
+            constant,
             offset,
             CombinationOptionCommon::OneLinerAdd.into(),
         )?;
@@ -240,10 +223,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         a: impl Assigned<F>,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(a + a),
-            _ => None,
-        };
+        let c = a.value().map(|a| a + a);
 
         let (_, _, res, _) = self.combine(
             region,
@@ -267,10 +247,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         a: impl Assigned<F>,
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error> {
-        let c = match a.value() {
-            Some(a) => Some(a + a + a),
-            _ => None,
-        };
+        let c = a.value().map(|a| a + a + a);
 
         let (_, _, _, res) = self.combine(
             region,
@@ -732,10 +709,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
     ) -> Result<AssignedCondition<F>, Error> {
         let one = F::one();
 
-        let not_c = match c.value() {
-            Some(c) => Some(one - c),
-            _ => None,
-        };
+        let not_c = c.value().map(|c| one - c);
 
         let (_, b, _, _) = self.combine(
             region,
@@ -965,7 +939,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         &self,
         region: &mut Region<'_, F>,
         terms: [Term<F>; WIDTH],
-        constant_aux: F,
+        constant: F,
         offset: &mut usize,
         option: CombinationOption<F>,
     ) -> Result<CombinedValues<F>, Error> {
@@ -979,7 +953,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_0",
                 self.config.a,
                 *offset,
-                || Ok(c_0.ok_or(Error::Synthesis)?),
+                || c_0.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_1 = region
@@ -987,7 +961,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_1",
                 self.config.b,
                 *offset,
-                || Ok(c_1.ok_or(Error::Synthesis)?),
+                || c_1.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_2 = region
@@ -995,7 +969,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_2",
                 self.config.c,
                 *offset,
-                || Ok(c_2.ok_or(Error::Synthesis)?),
+                || c_2.ok_or(Error::Synthesis),
             )?
             .cell();
         let cell_3 = region
@@ -1003,7 +977,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
                 || "coeff_3",
                 self.config.d,
                 *offset,
-                || Ok(c_3.ok_or(Error::Synthesis)?),
+                || c_3.ok_or(Error::Synthesis),
             )?
             .cell();
 
@@ -1016,7 +990,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             || "s_constant",
             self.config.s_constant,
             *offset,
-            || Ok(constant_aux),
+            || Ok(constant),
         )?;
 
         match option {
@@ -1069,7 +1043,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         terms[2].constrain_equal(region, cell_2)?;
         terms[3].constrain_equal(region, cell_3)?;
 
-        *offset = *offset + 1;
+        *offset += 1;
 
         let a_0 = AssignedValue::new(cell_0, c_0);
         let a_1 = AssignedValue::new(cell_1, c_1);
@@ -1157,7 +1131,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             *offset,
             || Ok(F::zero()),
         )?;
-        *offset = *offset + 1;
+        *offset += 1;
         Ok(())
     }
 }
@@ -1297,7 +1271,7 @@ mod tests {
                     let (a_0, a_1, a_2, a_3) = (F::rand(), F::rand(), F::rand(), F::rand());
                     let (r_0, r_1, r_2, r_3) = (F::rand(), F::rand(), F::rand(), F::rand());
 
-                    let aux = -(a_0 * r_0 + a_1 * r_1 + a_2 * r_2 + a_3 * r_3);
+                    let constant = -(a_0 * r_0 + a_1 * r_1 + a_2 * r_2 + a_3 * r_3);
 
                     let terms = [
                         Term::Unassigned(Some(a_0), r_0),
@@ -1309,7 +1283,7 @@ mod tests {
                     let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::OneLinerAdd.into(),
                     )?;
@@ -1324,7 +1298,7 @@ mod tests {
                     main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::OneLinerAdd.into(),
                     )?;
@@ -1334,7 +1308,7 @@ mod tests {
                     let (a_0, a_1, a_2, a_3) = (F::rand(), F::rand(), F::rand(), F::rand());
                     let (r_0, r_1, r_2, r_3) = (F::rand(), F::rand(), F::rand(), F::rand());
 
-                    let aux = -(a_0 * a_1 + a_0 * r_0 + a_1 * r_1 + a_2 * r_2 + a_3 * r_3);
+                    let constant = -(a_0 * a_1 + a_0 * r_0 + a_1 * r_1 + a_2 * r_2 + a_3 * r_3);
 
                     let terms = [
                         Term::Unassigned(Some(a_0), r_0),
@@ -1346,7 +1320,7 @@ mod tests {
                     let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::OneLinerMul.into(),
                     )?;
@@ -1361,7 +1335,7 @@ mod tests {
                     main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::OneLinerMul.into(),
                     )?;
@@ -1373,7 +1347,7 @@ mod tests {
                     let (r_0, r_1, r_2, r_3, r_next) =
                         (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
 
-                    let aux = -(a_0 * a_1
+                    let constant = -(a_0 * a_1
                         + r_0 * a_0
                         + r_1 * a_1
                         + a_2 * r_2
@@ -1390,7 +1364,7 @@ mod tests {
                     let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::CombineToNextMul(r_next).into(),
                     )?;
@@ -1407,7 +1381,7 @@ mod tests {
                     main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::CombineToNextMul(r_next).into(),
                     )?;
@@ -1427,7 +1401,7 @@ mod tests {
                         F::rand(),
                     );
 
-                    let aux = -(r_scale * a_0 * a_1
+                    let constant = -(r_scale * a_0 * a_1
                         + r_0 * a_0
                         + r_1 * a_1
                         + a_2 * r_2
@@ -1444,7 +1418,7 @@ mod tests {
                     let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::CombineToNextScaleMul(r_next, r_scale).into(),
                     )?;
@@ -1461,7 +1435,7 @@ mod tests {
                     main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::CombineToNextScaleMul(r_next, r_scale).into(),
                     )?;
@@ -1475,7 +1449,8 @@ mod tests {
                     let (r_0, r_1, r_2, r_3, r_next) =
                         (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
 
-                    let aux = -(r_0 * a_0 + r_1 * a_1 + a_2 * r_2 + a_3 * r_3 + a_next * r_next);
+                    let constant =
+                        -(r_0 * a_0 + r_1 * a_1 + a_2 * r_2 + a_3 * r_3 + a_next * r_next);
 
                     let terms = [
                         Term::Unassigned(Some(a_0), r_0),
@@ -1487,7 +1462,7 @@ mod tests {
                     let (u_0, u_1, u_2, u_3) = main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::CombineToNextAdd(r_next).into(),
                     )?;
@@ -1504,7 +1479,7 @@ mod tests {
                     main_gate.combine(
                         &mut region,
                         terms,
-                        aux,
+                        constant,
                         offset,
                         CombinationOptionCommon::CombineToNextAdd(r_next).into(),
                     )?;
@@ -1817,8 +1792,8 @@ mod tests {
 
                     let a = F::rand();
                     let b = F::rand();
-                    let aux = F::rand();
-                    let c = a + b + aux;
+                    let constant = F::rand();
+                    let c = a + b + constant;
                     let a = Some(a);
                     let b = Some(b);
                     let c = Some(c);
@@ -1826,7 +1801,8 @@ mod tests {
                     let a = main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
                     let b = main_gate.assign_value(&mut region, &b.into(), &mut offset)?;
                     let c_0 = main_gate.assign_value(&mut region, &c.into(), &mut offset)?;
-                    let c_1 = main_gate.add_with_constant(&mut region, a, b, aux, &mut offset)?;
+                    let c_1 =
+                        main_gate.add_with_constant(&mut region, a, b, constant, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
                     let a = F::rand();
@@ -1844,8 +1820,8 @@ mod tests {
 
                     let a = F::rand();
                     let b = F::rand();
-                    let aux = F::rand();
-                    let c = a - b + aux;
+                    let constant = F::rand();
+                    let c = a - b + constant;
                     let a = Some(a);
                     let b = Some(b);
                     let c = Some(c);
@@ -1853,7 +1829,8 @@ mod tests {
                     let a = main_gate.assign_value(&mut region, &a.into(), &mut offset)?;
                     let b = main_gate.assign_value(&mut region, &b.into(), &mut offset)?;
                     let c_0 = main_gate.assign_value(&mut region, &c.into(), &mut offset)?;
-                    let c_1 = main_gate.sub_with_constant(&mut region, a, b, aux, &mut offset)?;
+                    let c_1 =
+                        main_gate.sub_with_constant(&mut region, a, b, constant, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
                     let a = F::rand();
