@@ -1,5 +1,6 @@
 use halo2::arithmetic::FieldExt;
 use num_bigint::BigUint as big_uint;
+use num_traits::Zero;
 use std::ops::Shl;
 
 pub fn big_to_fe<F: FieldExt>(e: big_uint) -> F {
@@ -26,4 +27,12 @@ pub fn decompose_big<F: FieldExt>(e: big_uint, number_of_limbs: usize, bit_len: 
         .collect();
 
     limbs
+}
+
+pub fn compose(input: Vec<big_uint>, bit_len: usize) -> big_uint {
+    let mut e = big_uint::zero();
+    for (i, limb) in input.iter().enumerate() {
+        e += limb << (bit_len * i)
+    }
+    e
 }

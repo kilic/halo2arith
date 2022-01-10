@@ -11,6 +11,7 @@ pub mod utils;
 
 pub use halo2;
 pub use main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
+pub use utils::*;
 
 pub trait Assigned<F: FieldExt> {
     fn value(&self) -> Option<F>;
