@@ -355,7 +355,6 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
 
     fn no_operation(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error>;
 
-    #[cfg(test)]
     fn break_here(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error> {
         self.combine(
             region,
