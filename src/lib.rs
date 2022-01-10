@@ -114,6 +114,12 @@ impl<F: FieldExt> From<Option<F>> for UnassignedValue<F> {
     }
 }
 
+impl<F: FieldExt> From<UnassignedValue<F>> for Option<F> {
+    fn from(value: UnassignedValue<F>) -> Self {
+        value.0.clone()
+    }
+}
+
 impl<F: FieldExt> UnassignedValue<F> {
     pub fn value(&self) -> Option<F> {
         self.0.clone()
