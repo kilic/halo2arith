@@ -1221,6 +1221,8 @@ mod tests {
     use halo2::dev::MockProver;
     use halo2::pasta::Fp;
     use halo2::plonk::{Circuit, ConstraintSystem, Error};
+    use rand::SeedableRng;
+    use rand_xorshift::XorShiftRng;
 
     #[derive(Clone)]
     struct TestCircuitConfig {
@@ -1261,6 +1263,13 @@ mod tests {
         ) -> Result<(), Error> {
             let main_gate = config.main_gate();
 
+            let mut rng = XorShiftRng::from_seed([
+                0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+                0xbc, 0xe5,
+            ]);
+
+            let mut rand = || -> F { F::random(&mut rng) };
+
             layouter.assign_region(
                 || "region 0",
                 |mut region| {
@@ -1268,8 +1277,8 @@ mod tests {
 
                     // OneLinerAdd
 
-                    let (a_0, a_1, a_2, a_3) = (F::rand(), F::rand(), F::rand(), F::rand());
-                    let (r_0, r_1, r_2, r_3) = (F::rand(), F::rand(), F::rand(), F::rand());
+                    let (a_0, a_1, a_2, a_3) = (rand(), rand(), rand(), rand());
+                    let (r_0, r_1, r_2, r_3) = (rand(), rand(), rand(), rand());
 
                     let constant = -(a_0 * r_0 + a_1 * r_1 + a_2 * r_2 + a_3 * r_3);
 
@@ -1305,8 +1314,8 @@ mod tests {
 
                     // OneLinerMul
 
-                    let (a_0, a_1, a_2, a_3) = (F::rand(), F::rand(), F::rand(), F::rand());
-                    let (r_0, r_1, r_2, r_3) = (F::rand(), F::rand(), F::rand(), F::rand());
+                    let (a_0, a_1, a_2, a_3) = (rand(), rand(), rand(), rand());
+                    let (r_0, r_1, r_2, r_3) = (rand(), rand(), rand(), rand());
 
                     let constant = -(a_0 * a_1 + a_0 * r_0 + a_1 * r_1 + a_2 * r_2 + a_3 * r_3);
 
@@ -1342,10 +1351,8 @@ mod tests {
 
                     // CombineToNextMul(F)
 
-                    let (a_0, a_1, a_2, a_3, a_next) =
-                        (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
-                    let (r_0, r_1, r_2, r_3, r_next) =
-                        (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
+                    let (a_0, a_1, a_2, a_3, a_next) = (rand(), rand(), rand(), rand(), rand());
+                    let (r_0, r_1, r_2, r_3, r_next) = (rand(), rand(), rand(), rand(), rand());
 
                     let constant = -(a_0 * a_1
                         + r_0 * a_0
@@ -1390,16 +1397,9 @@ mod tests {
 
                     // CombineToNextScaleMul(F, F)
 
-                    let (a_0, a_1, a_2, a_3, a_next) =
-                        (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
-                    let (r_scale, r_0, r_1, r_2, r_3, r_next) = (
-                        F::rand(),
-                        F::rand(),
-                        F::rand(),
-                        F::rand(),
-                        F::rand(),
-                        F::rand(),
-                    );
+                    let (a_0, a_1, a_2, a_3, a_next) = (rand(), rand(), rand(), rand(), rand());
+                    let (r_scale, r_0, r_1, r_2, r_3, r_next) =
+                        (rand(), rand(), rand(), rand(), rand(), rand());
 
                     let constant = -(r_scale * a_0 * a_1
                         + r_0 * a_0
@@ -1444,10 +1444,8 @@ mod tests {
 
                     // CombineToNextAdd(F)
 
-                    let (a_0, a_1, a_2, a_3, a_next) =
-                        (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
-                    let (r_0, r_1, r_2, r_3, r_next) =
-                        (F::rand(), F::rand(), F::rand(), F::rand(), F::rand());
+                    let (a_0, a_1, a_2, a_3, a_next) = (rand(), rand(), rand(), rand(), rand());
+                    let (r_0, r_1, r_2, r_3, r_next) = (rand(), rand(), rand(), rand(), rand());
 
                     let constant =
                         -(r_0 * a_0 + r_1 * a_1 + a_2 * r_2 + a_3 * r_3 + a_next * r_next);
@@ -1622,6 +1620,13 @@ mod tests {
         ) -> Result<(), Error> {
             let main_gate = config.main_gate();
 
+            let mut rng = XorShiftRng::from_seed([
+                0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+                0xbc, 0xe5,
+            ]);
+
+            let mut rand = || -> F { F::random(&mut rng) };
+
             layouter.assign_region(
                 || "region 0",
                 |mut region| {
@@ -1640,7 +1645,7 @@ mod tests {
 
                         // assert_equal_to_constant
 
-                        let val = F::rand();
+                        let val = rand();
                         let assigned =
                             &main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
                         main_gate.assert_equal_to_constant(&mut region, assigned, val, offset)?;
@@ -1648,7 +1653,7 @@ mod tests {
 
                         // assert_equal
 
-                        let val = F::rand();
+                        let val = rand();
                         let assigned_0 =
                             main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
                         let assigned_1 =
@@ -1657,8 +1662,8 @@ mod tests {
 
                         // assert_not_equal
 
-                        let val_0 = F::rand();
-                        let val_1 = F::rand();
+                        let val_0 = rand();
+                        let val_1 = rand();
                         let assigned_0 =
                             main_gate.assign_value(&mut region, &Some(val_0).into(), offset)?;
                         let assigned_1 =
@@ -1667,7 +1672,7 @@ mod tests {
 
                         // is_equal
 
-                        let val = F::rand();
+                        let val = rand();
                         let assigned_0 =
                             main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
                         let assigned_1 =
@@ -1678,8 +1683,8 @@ mod tests {
                         main_gate.assert_one(&mut region, is_equal, offset)?;
                         main_gate.assert_equal(&mut region, is_equal, assigned_one, offset)?;
 
-                        let val_0 = F::rand();
-                        let val_1 = F::rand();
+                        let val_0 = rand();
+                        let val_1 = rand();
                         let assigned_0 =
                             main_gate.assign_value(&mut region, &Some(val_0).into(), offset)?;
                         let assigned_1 =
@@ -1692,7 +1697,7 @@ mod tests {
 
                         // is_zero
 
-                        let val = F::rand();
+                        let val = rand();
                         let assigned =
                             main_gate.assign_value(&mut region, &Some(val).into(), offset)?;
                         let is_zero = &main_gate.is_zero(&mut region, assigned, offset)?;
@@ -1761,13 +1766,20 @@ mod tests {
         ) -> Result<(), Error> {
             let main_gate = config.main_gate();
 
+            let mut rng = XorShiftRng::from_seed([
+                0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+                0xbc, 0xe5,
+            ]);
+
+            let mut rand = || -> F { F::random(&mut rng) };
+
             layouter.assign_region(
                 || "region 0",
                 |mut region| {
                     let mut offset = 0;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let c = a + b;
                     let a = Some(a);
                     let b = Some(b);
@@ -1779,8 +1791,8 @@ mod tests {
                     let c_1 = main_gate.add(&mut region, a, b, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let c = a + b;
                     let a = Some(a);
                     let c = Some(c);
@@ -1790,9 +1802,9 @@ mod tests {
                     let c_1 = main_gate.add_constant(&mut region, a, b, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
-                    let constant = F::rand();
+                    let a = rand();
+                    let b = rand();
+                    let constant = rand();
                     let c = a + b + constant;
                     let a = Some(a);
                     let b = Some(b);
@@ -1805,8 +1817,8 @@ mod tests {
                         main_gate.add_with_constant(&mut region, a, b, constant, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let c = a - b;
                     let a = Some(a);
                     let b = Some(b);
@@ -1818,9 +1830,9 @@ mod tests {
                     let c_1 = main_gate.sub(&mut region, a, b, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
-                    let constant = F::rand();
+                    let a = rand();
+                    let b = rand();
+                    let constant = rand();
                     let c = a - b + constant;
                     let a = Some(a);
                     let b = Some(b);
@@ -1833,8 +1845,8 @@ mod tests {
                         main_gate.sub_with_constant(&mut region, a, b, constant, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let c = a * b;
                     let a = Some(a);
                     let b = Some(b);
@@ -1846,8 +1858,8 @@ mod tests {
                     let c_1 = main_gate.mul(&mut region, a, b, &mut offset)?;
                     main_gate.assert_equal(&mut region, c_0, c_1, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let c = a * b.invert().unwrap();
                     let a = Some(a);
                     let b = Some(b);
@@ -1906,18 +1918,22 @@ mod tests {
             config: Self::Config,
             mut layouter: impl Layouter<F>,
         ) -> Result<(), Error> {
-            let main_gate = MainGate::<F> {
-                config: config.main_gate_config,
-                _marker: PhantomData,
-            };
+            let main_gate = config.main_gate();
+
+            let mut rng = XorShiftRng::from_seed([
+                0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+                0xbc, 0xe5,
+            ]);
+
+            let mut rand = || -> F { F::random(&mut rng) };
 
             layouter.assign_region(
                 || "region 0",
                 |mut region| {
                     let mut offset = 0;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let cond = F::zero();
 
                     let a = Some(a);
@@ -1932,8 +1948,8 @@ mod tests {
                     let selected = main_gate.cond_select(&mut region, a, b, &cond, &mut offset)?;
                     main_gate.assert_equal(&mut region, b, selected, &mut offset)?;
 
-                    let a = F::rand();
-                    let b = F::rand();
+                    let a = rand();
+                    let b = rand();
                     let cond = F::one();
 
                     let a = Some(a);
@@ -1948,8 +1964,8 @@ mod tests {
                     let selected = main_gate.cond_select(&mut region, a, b, &cond, &mut offset)?;
                     main_gate.assert_equal(&mut region, a, selected, &mut offset)?;
 
-                    let a = F::rand();
-                    let b_constant = F::rand();
+                    let a = rand();
+                    let b_constant = rand();
                     let cond = F::zero();
 
                     let a = Some(a);
@@ -1971,8 +1987,8 @@ mod tests {
                     )?;
                     main_gate.assert_equal(&mut region, b_assigned, selected, &mut offset)?;
 
-                    let a = F::rand();
-                    let b_constant = F::rand();
+                    let a = rand();
+                    let b_constant = rand();
                     let cond = F::one();
 
                     let a = Some(a);

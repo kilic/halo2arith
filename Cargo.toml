@@ -5,7 +5,7 @@ authors = ["kilic <kiliconu@itu.edu.tr>"]
 edition = "2018"
 
 [dependencies]
-halo2 = { git = "https://github.com/zcash/halo2.git", rev = "d57c530d99893b8b70c4b50c8a372a29b6c56ec3" }
+halo2 = { git = "https://github.com/zcash/halo2.git", rev = "6630a143c1895dc7d608411fd9686cf29e637924" }
 num-bigint = { version = "0.4", features = ["rand"] }
 num-integer = "0.1"
 num-traits = "0.2"

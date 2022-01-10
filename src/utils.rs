@@ -7,7 +7,7 @@ pub fn big_to_fe<F: FieldExt>(e: big_uint) -> F {
 }
 
 pub fn fe_to_big<F: FieldExt>(fe: F) -> big_uint {
-    big_uint::from_bytes_le(&fe.to_bytes()[..])
+    big_uint::from_bytes_le(fe.to_repr().as_ref())
 }
 
 pub fn decompose<F: FieldExt>(e: F, number_of_limbs: usize, bit_len: usize) -> Vec<F> {
