@@ -1,11 +1,11 @@
 use super::main_gate::{MainGate, MainGateColumn, MainGateConfig};
+use crate::halo2::arithmetic::FieldExt;
+use crate::halo2::circuit::{Chip, Layouter, Region};
+use crate::halo2::plonk::{ConstraintSystem, Error, Selector, TableColumn};
+use crate::halo2::poly::Rotation;
 use crate::main_gate::four::NUMBER_OF_LOOKUP_LIMBS;
 use crate::main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
 use crate::{AssignedValue, UnassignedValue};
-use halo2::arithmetic::FieldExt;
-use halo2::circuit::{Chip, Layouter, Region};
-use halo2::plonk::{ConstraintSystem, Error, Selector, TableColumn};
-use halo2::poly::Rotation;
 
 #[cfg(not(feature = "no_lookup"))]
 #[derive(Clone, Debug)]
@@ -258,9 +258,7 @@ impl<F: FieldExt> RangeInstructions<F> for RangeChip<F> {
 
     #[cfg(not(feature = "no_lookup"))]
     fn load_limb_range_table(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
-        let table_values: Vec<F> = (0..1 << self.base_bit_len)
-            .map(|e| F::from(e))
-            .collect();
+        let table_values: Vec<F> = (0..1 << self.base_bit_len).map(|e| F::from(e)).collect();
 
         layouter.assign_table(
             || "",
@@ -416,11 +414,15 @@ mod tests {
     use crate::{MainGateInstructions, UnassignedValue};
 
     use super::{RangeChip, RangeConfig, RangeInstructions};
-    use halo2::arithmetic::FieldExt;
-    use halo2::circuit::{Layouter, SimpleFloorPlanner};
-    use halo2::dev::MockProver;
-    use halo2::pasta::Fp;
-    use halo2::plonk::{Circuit, ConstraintSystem, Error};
+    use crate::halo2::arithmetic::FieldExt;
+    use crate::halo2::circuit::{Layouter, SimpleFloorPlanner};
+    use crate::halo2::dev::MockProver;
+    use crate::halo2::plonk::{Circuit, ConstraintSystem, Error};
+
+    #[cfg(feature = "kzg")]
+    use crate::halo2::pairing::bn256::Fr as Fp;
+    #[cfg(feature = "zcash")]
+    use crate::halo2::pasta::Fp;
 
     #[derive(Clone, Debug)]
     struct TestCircuitConfig {

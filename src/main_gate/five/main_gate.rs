@@ -1,9 +1,9 @@
+use crate::halo2::arithmetic::FieldExt;
+use crate::halo2::circuit::Region;
+use crate::halo2::plonk::{Advice, Column, ConstraintSystem, Error, Fixed};
+use crate::halo2::poly::Rotation;
 use crate::main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
 use crate::{Assigned, AssignedBit, AssignedCondition, AssignedValue, UnassignedValue};
-use halo2::arithmetic::FieldExt;
-use halo2::circuit::Region;
-use halo2::plonk::{Advice, Column, ConstraintSystem, Error, Fixed};
-use halo2::poly::Rotation;
 use std::marker::PhantomData;
 
 const WIDTH: usize = 5;
@@ -1370,15 +1370,19 @@ mod tests {
     use std::marker::PhantomData;
 
     use super::{MainGate, MainGateConfig, Term};
+    use crate::halo2::arithmetic::FieldExt;
+    use crate::halo2::circuit::{Layouter, SimpleFloorPlanner};
+    use crate::halo2::dev::MockProver;
+    use crate::halo2::plonk::{Circuit, ConstraintSystem, Error};
     use crate::main_gate::{CombinationOptionCommon, MainGateInstructions};
     use crate::{AssignedCondition, UnassignedValue};
-    use halo2::arithmetic::FieldExt;
-    use halo2::circuit::{Layouter, SimpleFloorPlanner};
-    use halo2::dev::MockProver;
-    use halo2::pasta::Fp;
-    use halo2::plonk::{Circuit, ConstraintSystem, Error};
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
+
+    #[cfg(feature = "kzg")]
+    use crate::halo2::pairing::bn256::Fr as Fp;
+    #[cfg(feature = "zcash")]
+    use crate::halo2::pasta::Fp;
 
     #[derive(Clone)]
     struct TestCircuitConfig {

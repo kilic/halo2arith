@@ -9,7 +9,11 @@ use utils::decompose;
 pub mod main_gate;
 pub mod utils;
 
-pub use halo2;
+#[cfg(feature = "zcash")]
+pub use halo2_zcash as halo2;
+#[cfg(feature = "kzg")]
+pub use halo2_kzg as halo2;
+
 pub use main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
 pub use utils::*;
 

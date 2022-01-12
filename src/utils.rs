@@ -1,4 +1,4 @@
-use halo2::arithmetic::FieldExt;
+use crate::halo2::arithmetic::FieldExt;
 use num_bigint::BigUint as big_uint;
 use num_traits::Zero;
 use std::ops::Shl;
