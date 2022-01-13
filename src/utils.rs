@@ -1,5 +1,5 @@
 use num_bigint::BigUint as big_uint;
-use num_traits::Zero;
+use num_traits::{Num, Zero};
 use std::ops::Shl;
 
 #[cfg(feature = "kzg")]
@@ -7,7 +7,13 @@ use crate::halo2::arithmetic::BaseExt as Field;
 #[cfg(feature = "zcash")]
 use crate::halo2::arithmetic::FieldExt as Field;
 
+fn modulus<F: Field>() -> big_uint {
+    big_uint::from_str_radix(&F::MODULUS[2..], 16).unwrap()
+}
+
 pub fn big_to_fe<F: Field>(e: big_uint) -> F {
+    let modulus = modulus::<F>();
+    let e = e % modulus;
     #[cfg(feature = "zcash")]
     {
         F::from_str_vartime(&e.to_str_radix(10)[..]).unwrap()
@@ -58,4 +64,34 @@ pub fn compose(input: Vec<big_uint>, bit_len: usize) -> big_uint {
         e += limb << (bit_len * i)
     }
     e
+}
+
+#[test]
+fn test_round_trip() {
+    use group::ff::Field as _;
+    use num_bigint::{BigUint, RandomBits};
+    use rand::Rng;
+
+    #[cfg(feature = "kzg")]
+    use crate::halo2::pairing::bn256::Fr as Fp;
+    #[cfg(feature = "zcash")]
+    use crate::halo2::pasta::Fp;
+
+    for _ in 0..1000 {
+        let mut rng = rand::thread_rng();
+        let a: BigUint = rng.sample(RandomBits::new(256));
+        let modulus = modulus::<Fp>();
+        let a_0 = a % modulus;
+        let t: Fp = big_to_fe(a_0.clone());
+        let a_1 = fe_to_big(t);
+        assert_eq!(a_0, a_1);
+    }
+
+    for _ in 0..1000 {
+        let mut rng = rand::thread_rng();
+        let a_0 = Fp::random(&mut rng);
+        let t = fe_to_big(a_0);
+        let a_1 = big_to_fe(t);
+        assert_eq!(a_0, a_1);
+    }
 }
