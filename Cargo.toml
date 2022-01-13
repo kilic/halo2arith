@@ -27,6 +27,8 @@ optional = true
 [features]
 zcash = ["halo2_zcash"]
 kzg = ["halo2_kzg"]
+no_lookup = []
+
 
 [dev-dependencies]
 rand_core = { version = "0.6", default-features = false }
