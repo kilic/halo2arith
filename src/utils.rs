@@ -2,10 +2,14 @@ use num_bigint::BigUint as big_uint;
 use num_traits::{Num, Zero};
 use std::ops::Shl;
 
-#[cfg(feature = "kzg")]
-use crate::halo2::arithmetic::BaseExt as Field;
-#[cfg(feature = "zcash")]
-use crate::halo2::arithmetic::FieldExt as Field;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "kzg")] {
+        use crate::halo2::arithmetic::BaseExt as Field;
+    } else {
+        // default feature
+        use crate::halo2::arithmetic::FieldExt as Field;
+    }
+}
 
 fn modulus<F: Field>() -> big_uint {
     big_uint::from_str_radix(&F::MODULUS[2..], 16).unwrap()
@@ -14,29 +18,30 @@ fn modulus<F: Field>() -> big_uint {
 pub fn big_to_fe<F: Field>(e: big_uint) -> F {
     let modulus = modulus::<F>();
     let e = e % modulus;
-    #[cfg(feature = "zcash")]
-    {
-        F::from_str_vartime(&e.to_str_radix(10)[..]).unwrap()
-    }
-    #[cfg(feature = "kzg")]
-    {
-        let mut bytes = e.to_bytes_le();
-        bytes.resize(32, 0);
-        let mut bytes = &bytes[..];
-        F::read(&mut bytes).unwrap()
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "kzg")] {
+            let mut bytes = e.to_bytes_le();
+            bytes.resize(32, 0);
+            let mut bytes = &bytes[..];
+            F::read(&mut bytes).unwrap()
+        } else {
+            // default feature
+            F::from_str_vartime(&e.to_str_radix(10)[..]).unwrap()
+        }
     }
 }
 
 pub fn fe_to_big<F: Field>(fe: F) -> big_uint {
-    #[cfg(feature = "zcash")]
-    {
-        big_uint::from_bytes_le(fe.to_repr().as_ref())
-    }
-    #[cfg(feature = "kzg")]
-    {
-        let mut bytes: Vec<u8> = Vec::new();
-        fe.write(&mut bytes).unwrap();
-        big_uint::from_bytes_le(&bytes[..])
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "kzg")] {
+            let mut bytes: Vec<u8> = Vec::new();
+            fe.write(&mut bytes).unwrap();
+            big_uint::from_bytes_le(&bytes[..])
+        } else {
+            // default feature
+            big_uint::from_bytes_le(fe.to_repr().as_ref())
+        }
     }
 }
 
@@ -72,10 +77,14 @@ fn test_round_trip() {
     use num_bigint::{BigUint, RandomBits};
     use rand::Rng;
 
-    #[cfg(feature = "kzg")]
-    use crate::halo2::pairing::bn256::Fr as Fp;
-    #[cfg(feature = "zcash")]
-    use crate::halo2::pasta::Fp;
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "kzg")] {
+            use crate::halo2::pairing::bn256::Fr as Fp;
+        } else {
+            // default feature
+            use crate::halo2::pasta::Fp;
+        }
+    }
 
     for _ in 0..1000 {
         let mut rng = rand::thread_rng();

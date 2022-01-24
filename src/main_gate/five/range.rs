@@ -422,10 +422,14 @@ mod tests {
     use crate::main_gate::five::NUMBER_OF_LOOKUP_LIMBS;
     use crate::{MainGateInstructions, UnassignedValue};
 
-    #[cfg(feature = "kzg")]
-    use crate::halo2::pairing::bn256::Fr as Fp;
-    #[cfg(feature = "zcash")]
-    use crate::halo2::pasta::Fp;
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "kzg")] {
+            use crate::halo2::pairing::bn256::Fr as Fp;
+        } else {
+            // default feature
+            use crate::halo2::pasta::Fp;
+        }
+    }
 
     #[derive(Clone, Debug)]
     struct TestCircuitConfig {

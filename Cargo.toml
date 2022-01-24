@@ -11,6 +11,7 @@ num-traits = "0.2"
 rand = "0.8"
 group = "0.11"
 subtle = { version = "2.3", default-features = false }
+cfg-if = "0.1"
 
 [dependencies.halo2_zcash]
 package = "halo2"
@@ -25,6 +26,7 @@ branch = "kzg"
 optional = true
 
 [features]
+default = ["zcash"]
 zcash = ["halo2_zcash"]
 kzg = ["halo2_kzg"]
 no_lookup = []
