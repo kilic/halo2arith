@@ -1,11 +1,18 @@
 use super::main_gate::{MainGate, MainGateColumn, MainGateConfig};
 use super::NUMBER_OF_LOOKUP_LIMBS;
 use crate::halo2::arithmetic::FieldExt;
-use crate::halo2::circuit::{Chip, Layouter, Region};
-use crate::halo2::plonk::{ConstraintSystem, Error, Selector, TableColumn};
-use crate::halo2::poly::Rotation;
+use crate::halo2::circuit::{Chip, Region};
+use crate::halo2::plonk::{ConstraintSystem, Error};
+
 use crate::main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
 use crate::{AssignedValue, UnassignedValue};
+
+#[cfg(not(feature = "no_lookup"))]
+use crate::halo2::circuit::Layouter;
+#[cfg(not(feature = "no_lookup"))]
+use crate::halo2::plonk::{Selector, TableColumn};
+#[cfg(not(feature = "no_lookup"))]
+use crate::halo2::poly::Rotation;
 
 #[cfg(not(feature = "no_lookup"))]
 #[derive(Clone, Debug)]
@@ -327,31 +334,32 @@ impl<F: FieldExt> RangeChip<F> {
         }
     }
 
+    #[allow(unused_variables)]
     pub fn configure(
         meta: &mut ConstraintSystem<F>,
         main_gate_config: &MainGateConfig,
         fine_tune_bit_lengths: Vec<usize>,
     ) -> RangeConfig {
-        let mut fine_tune_bit_lengths = fine_tune_bit_lengths;
-        fine_tune_bit_lengths.sort();
-        fine_tune_bit_lengths.dedup();
-        let fine_tune_bit_lengths: Vec<usize> = fine_tune_bit_lengths
-            .into_iter()
-            .filter(|e| *e != 0)
-            .collect();
-
-        let a = main_gate_config.a;
-        let b = main_gate_config.b;
-        let c = main_gate_config.c;
-        let d = main_gate_config.d;
-
-        #[cfg(not(feature = "no_lookup"))]
-        let s_dense_limb_range = meta.complex_selector();
-        #[cfg(not(feature = "no_lookup"))]
-        let dense_limb_range_table = meta.lookup_table_column();
-
         #[cfg(not(feature = "no_lookup"))]
         {
+            let mut fine_tune_bit_lengths = fine_tune_bit_lengths;
+            fine_tune_bit_lengths.sort();
+            fine_tune_bit_lengths.dedup();
+            let fine_tune_bit_lengths: Vec<usize> = fine_tune_bit_lengths
+                .into_iter()
+                .filter(|e| *e != 0)
+                .collect();
+
+            let (a, b, c, d) = (
+                main_gate_config.a,
+                main_gate_config.b,
+                main_gate_config.c,
+                main_gate_config.d,
+            );
+
+            let s_dense_limb_range = meta.complex_selector();
+            let dense_limb_range_table = meta.lookup_table_column();
+
             meta.lookup(|meta| {
                 let exp = meta.query_advice(a, Rotation::cur());
                 let s_range = meta.query_selector(s_dense_limb_range);
@@ -375,37 +383,38 @@ impl<F: FieldExt> RangeChip<F> {
                 let s_range = meta.query_selector(s_dense_limb_range);
                 vec![(exp * s_range, dense_limb_range_table)]
             });
+
+            let fine_tune_tables = fine_tune_bit_lengths
+                .iter()
+                .map(|bit_len| {
+                    let selector = meta.complex_selector();
+                    let column = meta.lookup_table_column();
+
+                    meta.lookup(|meta| {
+                        let exp = meta.query_advice(b, Rotation::cur());
+                        let selector = meta.query_selector(selector);
+                        vec![(exp * selector, column)]
+                    });
+
+                    TableConfig {
+                        selector,
+                        column,
+                        bit_len: *bit_len,
+                    }
+                })
+                .collect();
+
+            return RangeConfig {
+                main_gate_config: main_gate_config.clone(),
+                s_dense_limb_range,
+                dense_limb_range_table,
+                fine_tune_tables,
+            };
         }
 
-        #[cfg(not(feature = "no_lookup"))]
-        let fine_tune_tables = fine_tune_bit_lengths
-            .iter()
-            .map(|bit_len| {
-                let selector = meta.complex_selector();
-                let column = meta.lookup_table_column();
-
-                meta.lookup(|meta| {
-                    let exp = meta.query_advice(b, Rotation::cur());
-                    let selector = meta.query_selector(selector);
-                    vec![(exp * selector, column)]
-                });
-
-                TableConfig {
-                    selector,
-                    column,
-                    bit_len: *bit_len,
-                }
-            })
-            .collect();
-
+        #[cfg(feature = "no_lookup")]
         RangeConfig {
             main_gate_config: main_gate_config.clone(),
-            #[cfg(not(feature = "no_lookup"))]
-            s_dense_limb_range,
-            #[cfg(not(feature = "no_lookup"))]
-            dense_limb_range_table,
-            #[cfg(not(feature = "no_lookup"))]
-            fine_tune_tables,
         }
     }
 }
@@ -531,7 +540,7 @@ mod tests {
         #[cfg(not(feature = "no_lookup"))]
         let k: u32 = (base_bit_len + 1) as u32;
         #[cfg(feature = "no_lookup")]
-        let k: u32 = 8;
+        let k: u32 = 10;
 
         let min_bit_len = 1;
         let max_bit_len = base_bit_len * (NUMBER_OF_LOOKUP_LIMBS + 1) - 1;
