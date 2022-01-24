@@ -74,7 +74,7 @@ pub fn compose(input: Vec<big_uint>, bit_len: usize) -> big_uint {
 #[test]
 fn test_round_trip() {
     use group::ff::Field as _;
-    use num_bigint::{BigUint, RandomBits};
+    use num_bigint::RandomBits;
     use rand::Rng;
 
     cfg_if::cfg_if! {
@@ -88,7 +88,7 @@ fn test_round_trip() {
 
     for _ in 0..1000 {
         let mut rng = rand::thread_rng();
-        let a: BigUint = rng.sample(RandomBits::new(256));
+        let a: big_uint = rng.sample(RandomBits::new(256));
         let modulus = modulus::<Fp>();
         let a_0 = a % modulus;
         let t: Fp = big_to_fe(a_0.clone());
@@ -103,4 +103,28 @@ fn test_round_trip() {
         let a_1 = big_to_fe(t);
         assert_eq!(a_0, a_1);
     }
+}
+
+#[test]
+fn test_bit_decomposition() {
+    use num_bigint::RandomBits;
+    use rand::Rng;
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "kzg")] {
+            use crate::halo2::pairing::bn256::Fr as Fp;
+        } else {
+            // default feature
+            use crate::halo2::pasta::Fp;
+        }
+    }
+
+    let mut rng = rand::thread_rng();
+    let bit_size = 256usize;
+    let e_0: big_uint = rng.sample(RandomBits::new(bit_size as u64));
+
+    let decomposed = decompose_big::<Fp>(e_0.clone(), bit_size, 1);
+    let e_1 = compose(decomposed.into_iter().map(fe_to_big).collect(), 1);
+
+    assert_eq!(e_0, e_1);
 }

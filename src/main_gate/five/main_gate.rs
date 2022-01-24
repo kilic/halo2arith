@@ -3,7 +3,8 @@ use crate::halo2::circuit::Region;
 use crate::halo2::plonk::{Advice, Column, ConstraintSystem, Error, Fixed};
 use crate::halo2::poly::Rotation;
 use crate::main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
-use crate::{Assigned, AssignedBit, AssignedCondition, AssignedValue, UnassignedValue};
+use crate::utils::decompose;
+use crate::{big_to_fe, Assigned, AssignedBit, AssignedCondition, AssignedValue, UnassignedValue};
 use std::marker::PhantomData;
 
 const WIDTH: usize = 5;
@@ -974,6 +975,140 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(())
     }
 
+    fn decompose(
+        &self,
+        region: &mut Region<'_, F>,
+        composed: impl Assigned<F>,
+        number_of_bits: usize,
+        offset: &mut usize,
+    ) -> Result<Vec<AssignedBit<F>>, Error> {
+        use num_bigint::BigUint as big_uint;
+        use num_traits::One;
+
+        // Witness layout:
+
+        // | A       | B       | C       | D       | E         |
+        // | ------- | ------- | ------- | ------- | --------- |
+        // | b_0     | b_1     | b_2     | b_3     | value     |
+        // | b_4     | b_5     | b_6     | b_7     | value - t0|
+
+        let mut assigned_bits: Vec<AssignedBit<F>> = Vec::with_capacity(number_of_bits);
+
+        let decomposed_value = composed
+            .value()
+            .map(|value| decompose(value, number_of_bits, 1));
+
+        for i in 0..number_of_bits {
+            let bit = decomposed_value.as_ref().map(|bits| bits[i]);
+            assigned_bits.push(self.assign_bit(region, &bit.into(), offset)?);
+        }
+
+        let width = WIDTH - 1;
+        let bit_size_offset = number_of_bits % width;
+        let number_of_rounds = number_of_bits / width;
+
+        let mut acc = composed.value();
+
+        for i in 0..number_of_rounds {
+            let j = i * width;
+
+            let base_0 = big_to_fe(big_uint::one() << j);
+            let base_1 = big_to_fe(big_uint::one() << (j + 1));
+            let base_2 = big_to_fe(big_uint::one() << (j + 2));
+            let base_3 = big_to_fe(big_uint::one() << (j + 3));
+
+            let coeff_0 = &assigned_bits[j];
+            let coeff_1 = &assigned_bits[j + 1];
+            let coeff_2 = &assigned_bits[j + 2];
+            let coeff_3 = &assigned_bits[j + 3];
+
+            self.combine(
+                region,
+                [
+                    Term::Assigned(&coeff_0, base_0),
+                    Term::Assigned(&coeff_1, base_1),
+                    Term::Assigned(&coeff_2, base_2),
+                    Term::Assigned(&coeff_3, base_3),
+                    Term::unassigned_to_sub(acc),
+                ],
+                F::zero(),
+                offset,
+                CombinationOptionCommon::CombineToNextAdd(F::one()).into(),
+            )?;
+
+            acc = match (
+                coeff_0.value(),
+                coeff_1.value(),
+                coeff_2.value(),
+                coeff_3.value(),
+                acc,
+            ) {
+                (Some(c_0), Some(c_1), Some(c_2), Some(c_3), Some(acc)) => {
+                    Some(acc - (base_0 * c_0 + base_1 * c_1 + base_2 * c_2 + base_3 * c_3))
+                }
+                _ => None,
+            };
+        }
+
+        let mut must_be_zero = acc;
+
+        if bit_size_offset > 0 {
+            let j = number_of_rounds * width;
+
+            let base_0 = big_to_fe(big_uint::one() << j);
+            let c = &assigned_bits[j];
+            must_be_zero = match (c.value(), must_be_zero) {
+                (Some(c), Some(must_be_zero)) => Some(must_be_zero - (base_0 * c)),
+                _ => None,
+            };
+            let term_0 = Term::Assigned(&c, base_0);
+
+            let term_1 = if bit_size_offset > 1 {
+                let b = big_to_fe(big_uint::one() << (j + 1));
+                let c = &assigned_bits[j + 1];
+                must_be_zero = match (c.value(), must_be_zero) {
+                    (Some(c), Some(must_be_zero)) => Some(must_be_zero - (b * c)),
+                    _ => None,
+                };
+                Term::Assigned(c, b)
+            } else {
+                Term::Zero
+            };
+
+            let term_2 = if bit_size_offset > 2 {
+                let b = big_to_fe(big_uint::one() << (j + 2));
+                let c = &assigned_bits[j + 2];
+                must_be_zero = match (c.value(), must_be_zero) {
+                    (Some(c), Some(must_be_zero)) => Some(must_be_zero - (b * c)),
+                    _ => None,
+                };
+                Term::Assigned(c, b)
+            } else {
+                Term::Zero
+            };
+
+            self.combine(
+                region,
+                [
+                    term_0,
+                    term_1,
+                    term_2,
+                    Term::Zero,
+                    Term::unassigned_to_sub(acc),
+                ],
+                F::zero(),
+                offset,
+                CombinationOptionCommon::OneLinerAdd.into(),
+            )?;
+        }
+
+        if let Some(must_be_zero) = must_be_zero {
+            assert_eq!(must_be_zero, F::zero())
+        }
+
+        Ok(assigned_bits)
+    }
+
     fn combine(
         &self,
         region: &mut Region<'_, F>,
@@ -1375,7 +1510,9 @@ mod tests {
     use crate::halo2::dev::MockProver;
     use crate::halo2::plonk::{Circuit, ConstraintSystem, Error};
     use crate::main_gate::{CombinationOptionCommon, MainGateInstructions};
-    use crate::{AssignedCondition, UnassignedValue};
+    use crate::utils::decompose;
+    use crate::{big_to_fe, AssignedCondition, UnassignedValue};
+    use group::ff::PrimeField;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
 
@@ -1924,16 +2061,6 @@ mod tests {
             Err(e) => panic!("{:#?}", e),
         };
         assert_eq!(prover.verify(), Ok(()));
-
-        // let circuit = TestCircuitBitness::<Fp> {
-        //     neg_path: true,
-        //     _marker: PhantomData,
-        // };
-        // let prover = match MockProver::run(K, &circuit, vec![]) {
-        //     Ok(prover) => prover,
-        //     Err(e) => panic!("{:#?}", e),
-        // };
-        // assert_ne!(prover.verify(), Ok(()));
     }
 
     #[derive(Default)]
@@ -2227,5 +2354,102 @@ mod tests {
         };
 
         assert_eq!(prover.verify(), Ok(()));
+    }
+
+    #[derive(Default)]
+    struct TestCircuitDecomposition<F: FieldExt> {
+        _marker: PhantomData<F>,
+        number_of_bits: usize,
+    }
+
+    impl<F: FieldExt> Circuit<F> for TestCircuitDecomposition<F> {
+        type Config = TestCircuitConfig;
+        type FloorPlanner = SimpleFloorPlanner;
+
+        fn without_witnesses(&self) -> Self {
+            Self::default()
+        }
+
+        fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+            let main_gate_config = MainGate::<F>::configure(meta);
+            TestCircuitConfig { main_gate_config }
+        }
+
+        fn synthesize(
+            &self,
+            config: Self::Config,
+            mut layouter: impl Layouter<F>,
+        ) -> Result<(), Error> {
+            let main_gate = MainGate::<F> {
+                config: config.main_gate_config,
+                _marker: PhantomData,
+            };
+
+            let mut rng = XorShiftRng::from_seed([
+                0x59, 0x62, 0xbe, 0x5d, 0x76, 0x3d, 0x31, 0x8d, 0x17, 0xdb, 0x37, 0x32, 0x54, 0x06,
+                0xbc, 0xe5,
+            ]);
+
+            let mut rand = || -> F { F::random(&mut rng) };
+
+            layouter.assign_region(
+                || "region 0",
+                |mut region| {
+                    let offset = &mut 0;
+
+                    let a = rand();
+                    let number_of_bits = F::NUM_BITS as usize;
+                    let decomposed = decompose(a, number_of_bits, 1);
+                    let a = main_gate.assign_value(&mut region, &Some(a).into(), offset)?;
+                    let a_decomposed =
+                        main_gate.decompose(&mut region, a, number_of_bits, offset)?;
+                    assert_eq!(decomposed.len(), a_decomposed.len());
+
+                    for (assigned, value) in a_decomposed.iter().zip(decomposed.into_iter()) {
+                        if value == F::zero() {
+                            main_gate.assert_zero(&mut region, assigned, offset)?;
+                        } else {
+                            main_gate.assert_one(&mut region, assigned, offset)?;
+                        }
+                    }
+
+                    let number_of_bits = self.number_of_bits;
+                    use num_bigint::BigUint as big_uint;
+                    use num_bigint::RandomBits;
+                    use rand::Rng;
+                    let mut rng = rand::thread_rng();
+                    let a: big_uint = rng.sample(RandomBits::new(number_of_bits as u64));
+                    let a: F = big_to_fe(a);
+                    let decomposed = decompose(a, number_of_bits, 1);
+                    let a = main_gate.assign_value(&mut region, &Some(a).into(), offset)?;
+                    let a_decomposed =
+                        main_gate.decompose(&mut region, a, number_of_bits, offset)?;
+                    assert_eq!(decomposed.len(), a_decomposed.len());
+
+                    Ok(())
+                },
+            )?;
+
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_main_gate_decomposition() {
+        const K: u32 = 10;
+
+        for number_of_bits in 1..Fp::NUM_BITS as usize {
+            let circuit = TestCircuitDecomposition::<Fp> {
+                _marker: PhantomData::<Fp>,
+                number_of_bits,
+            };
+
+            let prover = match MockProver::run(K, &circuit, vec![]) {
+                Ok(prover) => prover,
+                Err(e) => panic!("{:#?}", e),
+            };
+
+            assert_eq!(prover.verify(), Ok(()));
+        }
     }
 }

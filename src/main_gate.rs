@@ -8,12 +8,32 @@ use crate::{Assigned, AssignedBit, AssignedCondition, AssignedValue, UnassignedV
 
 pub mod five;
 pub mod four;
+use std::fmt;
 
 #[derive(Copy, Clone)]
 pub enum Term<'a, F: FieldExt> {
     Assigned(&'a dyn Assigned<F>, F),
     Unassigned(Option<F>, F),
     Zero,
+}
+
+impl<'a, F: FieldExt> fmt::Debug for Term<'a, F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Assigned(coeff, base) => f
+                .debug_struct("Assigned")
+                .field("cell", &coeff.cell())
+                .field("value", &coeff.value())
+                .field("base", base)
+                .finish(),
+            Self::Unassigned(coeff, base) => f
+                .debug_struct("Unassigned")
+                .field("coeff", coeff)
+                .field("base", base)
+                .finish(),
+            Self::Zero => f.debug_struct("Zero").finish(),
+        }
+    }
 }
 
 impl<'a, F: FieldExt> Term<'a, F> {
@@ -352,6 +372,14 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         b: impl Assigned<F>,
         offset: &mut usize,
     ) -> Result<(), Error>;
+
+    fn decompose(
+        &self,
+        region: &mut Region<'_, F>,
+        composed: impl Assigned<F>,
+        number_of_bits: usize,
+        offset: &mut usize,
+    ) -> Result<Vec<AssignedBit<F>>, Error>;
 
     fn no_operation(&self, region: &mut Region<'_, F>, offset: &mut usize) -> Result<(), Error>;
 
