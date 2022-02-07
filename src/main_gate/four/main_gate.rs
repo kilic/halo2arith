@@ -1,6 +1,6 @@
 use crate::halo2::arithmetic::FieldExt;
-use crate::halo2::circuit::Region;
-use crate::halo2::plonk::{Advice, Column, ConstraintSystem, Error, Fixed};
+use crate::halo2::circuit::{Chip, Layouter, Region};
+use crate::halo2::plonk::{Advice, Column, ConstraintSystem, Error, Fixed, Instance};
 use crate::halo2::poly::Rotation;
 use crate::main_gate::{CombinationOptionCommon, MainGateInstructions, Term};
 use crate::utils::decompose;
@@ -37,11 +37,26 @@ pub struct MainGateConfig {
     pub sd_next: Column<Fixed>,
     pub s_mul: Column<Fixed>,
     pub s_constant: Column<Fixed>,
+
+    pub instance: Column<Instance>,
 }
 
 pub struct MainGate<F: FieldExt> {
     pub config: MainGateConfig,
     _marker: PhantomData<F>,
+}
+
+impl<F: FieldExt> Chip<F> for MainGate<F> {
+    type Config = MainGateConfig;
+    type Loaded = ();
+
+    fn config(&self) -> &Self::Config {
+        &self.config
+    }
+
+    fn loaded(&self) -> &Self::Loaded {
+        &()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -59,6 +74,16 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
     type CombinationOption = CombinationOption<F>;
     type CombinedValues = CombinedValues<F>;
     type MainGateColumn = MainGateColumn;
+
+    fn expose_public(
+        &self,
+        mut layouter: impl Layouter<F>,
+        value: AssignedValue<F>,
+        row: usize,
+    ) -> Result<(), Error> {
+        let config = self.config();
+        layouter.constrain_instance(value.cell(), config.instance, row)
+    }
 
     fn add(
         &self,
@@ -641,7 +666,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(())
     }
 
-    fn cond_or(
+    fn or(
         &self,
         region: &mut Region<'_, F>,
         c1: &AssignedCondition<F>,
@@ -672,7 +697,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(c.into())
     }
 
-    fn cond_and(
+    fn and(
         &self,
         region: &mut Region<'_, F>,
         c1: &AssignedCondition<F>,
@@ -702,7 +727,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(c.into())
     }
 
-    fn cond_not(
+    fn not(
         &self,
         region: &mut Region<'_, F>,
         c: &AssignedCondition<F>,
@@ -728,7 +753,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(b.into())
     }
 
-    fn cond_select(
+    fn select(
         &self,
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
@@ -785,7 +810,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(res)
     }
 
-    fn cond_select_or_assign(
+    fn select_or_assign(
         &self,
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
@@ -1267,10 +1292,13 @@ impl<F: FieldExt> MainGate<F> {
         let s_mul = meta.fixed_column();
         let s_constant = meta.fixed_column();
 
+        let instance = meta.instance_column();
+
         meta.enable_equality(a);
         meta.enable_equality(b);
         meta.enable_equality(c);
         meta.enable_equality(d);
+        meta.enable_equality(instance);
 
         meta.create_gate("main_gate", |meta| {
             let a = meta.query_advice(a, Rotation::cur());
@@ -1313,6 +1341,7 @@ impl<F: FieldExt> MainGate<F> {
             sd_next,
             s_constant,
             s_mul,
+            instance,
         }
     }
 }
@@ -1355,6 +1384,67 @@ mod tests {
                 _marker: PhantomData,
             }
         }
+    }
+
+    #[derive(Default)]
+    struct TestCircuitPublicInputs<F: FieldExt> {
+        _marker: PhantomData<F>,
+        public_input: F,
+    }
+
+    impl<F: FieldExt> Circuit<F> for TestCircuitPublicInputs<F> {
+        type Config = TestCircuitConfig;
+        type FloorPlanner = SimpleFloorPlanner;
+
+        fn without_witnesses(&self) -> Self {
+            Self::default()
+        }
+
+        fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
+            let main_gate_config = MainGate::<F>::configure(meta);
+            TestCircuitConfig { main_gate_config }
+        }
+
+        fn synthesize(
+            &self,
+            config: Self::Config,
+            mut layouter: impl Layouter<F>,
+        ) -> Result<(), Error> {
+            let main_gate = config.main_gate();
+
+            let value = layouter.assign_region(
+                || "region 0",
+                |mut region| {
+                    let offset = &mut 0;
+                    let value = main_gate.assign_value(
+                        &mut region,
+                        &Some(self.public_input).into(),
+                        offset,
+                    )?;
+                    Ok(value)
+                },
+            )?;
+            main_gate.expose_public(layouter, value, 0)?;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_main_gate_public_inputs() {
+        const K: u32 = 8;
+
+        let public_input = Fp::from(3);
+        let public_inputs = vec![vec![public_input]];
+
+        let circuit = TestCircuitPublicInputs::<Fp> {
+            public_input,
+            _marker: PhantomData,
+        };
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
+            Ok(prover) => prover,
+            Err(e) => panic!("{:#?}", e),
+        };
+        assert_eq!(prover.verify(), Ok(()));
     }
 
     #[derive(Default)]
@@ -1617,7 +1707,8 @@ mod tests {
         let circuit = TestCircuitCombination::<Fp> {
             _marker: PhantomData,
         };
-        let prover = match MockProver::run(K, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -1696,7 +1787,8 @@ mod tests {
             neg_path: false,
             _marker: PhantomData,
         };
-        let prover = match MockProver::run(K, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -1706,7 +1798,8 @@ mod tests {
             neg_path: true,
             _marker: PhantomData,
         };
-        let prover = match MockProver::run(K, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -1843,7 +1936,8 @@ mod tests {
             neg_path: false,
             _marker: PhantomData,
         };
-        let prover = match MockProver::run(K, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -2006,7 +2100,8 @@ mod tests {
             _marker: PhantomData::<Fp>,
         };
 
-        let prover = match MockProver::run(K, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -2064,7 +2159,7 @@ mod tests {
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
-                    let selected = main_gate.cond_select(&mut region, a, b, &cond, &mut offset)?;
+                    let selected = main_gate.select(&mut region, a, b, &cond, &mut offset)?;
                     main_gate.assert_equal(&mut region, b, selected, &mut offset)?;
 
                     let a = rand();
@@ -2080,7 +2175,7 @@ mod tests {
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
-                    let selected = main_gate.cond_select(&mut region, a, b, &cond, &mut offset)?;
+                    let selected = main_gate.select(&mut region, a, b, &cond, &mut offset)?;
                     main_gate.assert_equal(&mut region, a, selected, &mut offset)?;
 
                     let a = rand();
@@ -2097,7 +2192,7 @@ mod tests {
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
-                    let selected = main_gate.cond_select_or_assign(
+                    let selected = main_gate.select_or_assign(
                         &mut region,
                         a,
                         b_constant,
@@ -2117,7 +2212,7 @@ mod tests {
                     let cond: AssignedCondition<F> = main_gate
                         .assign_value(&mut region, &cond.into(), &mut offset)?
                         .into();
-                    let selected = main_gate.cond_select_or_assign(
+                    let selected = main_gate.select_or_assign(
                         &mut region,
                         a,
                         b_constant,
@@ -2142,7 +2237,8 @@ mod tests {
             _marker: PhantomData::<Fp>,
         };
 
-        let prover = match MockProver::run(K, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(K, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
@@ -2238,7 +2334,8 @@ mod tests {
                 number_of_bits,
             };
 
-            let prover = match MockProver::run(K, &circuit, vec![]) {
+            let public_inputs = vec![vec![]];
+            let prover = match MockProver::run(K, &circuit, public_inputs) {
                 Ok(prover) => prover,
                 Err(e) => panic!("{:#?}", e),
             };

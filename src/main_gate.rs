@@ -1,6 +1,6 @@
 use crate::halo2::{
     arithmetic::FieldExt,
-    circuit::{Cell, Region},
+    circuit::{Cell, Chip, Layouter, Region},
     plonk::Error,
 };
 
@@ -94,10 +94,17 @@ pub enum CombinationOptionCommon<F: FieldExt> {
     CombineToNextAdd(F),
 }
 
-pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
+pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize>: Chip<F> {
     type CombinationOption: From<CombinationOptionCommon<F>>;
     type CombinedValues;
     type MainGateColumn;
+
+    fn expose_public(
+        &self,
+        layouter: impl Layouter<F>,
+        value: AssignedValue<F>,
+        row: usize,
+    ) -> Result<(), Error>;
 
     fn assign_value(
         &self,
@@ -143,7 +150,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         offset: &mut usize,
     ) -> Result<(), Error>;
 
-    fn cond_or(
+    fn or(
         &self,
         region: &mut Region<'_, F>,
         c1: &AssignedCondition<F>,
@@ -151,7 +158,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         offset: &mut usize,
     ) -> Result<AssignedCondition<F>, Error>;
 
-    fn cond_and(
+    fn and(
         &self,
         region: &mut Region<'_, F>,
         c1: &AssignedCondition<F>,
@@ -159,14 +166,14 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         offset: &mut usize,
     ) -> Result<AssignedCondition<F>, Error>;
 
-    fn cond_not(
+    fn not(
         &self,
         region: &mut Region<'_, F>,
         c: &AssignedCondition<F>,
         offset: &mut usize,
     ) -> Result<AssignedCondition<F>, Error>;
 
-    fn cond_select(
+    fn select(
         &self,
         region: &mut Region<'_, F>,
         a: impl Assigned<F>,
@@ -175,7 +182,7 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize> {
         offset: &mut usize,
     ) -> Result<AssignedValue<F>, Error>;
 
-    fn cond_select_or_assign(
+    fn select_or_assign(
         &self,
         region: &mut Region<'_, F>,
         to_be_selected: impl Assigned<F>,

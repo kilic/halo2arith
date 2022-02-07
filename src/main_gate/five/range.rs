@@ -555,7 +555,8 @@ mod tests {
 
         let circuit = TestCircuit::<Fp> { input };
 
-        let prover = match MockProver::run(k, &circuit, vec![]) {
+        let public_inputs = vec![vec![]];
+        let prover = match MockProver::run(k, &circuit, public_inputs) {
             Ok(prover) => prover,
             Err(e) => panic!("{:#?}", e),
         };
