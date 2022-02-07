@@ -106,6 +106,13 @@ pub trait MainGateInstructions<F: FieldExt, const WIDTH: usize>: Chip<F> {
         row: usize,
     ) -> Result<(), Error>;
 
+    fn assign_constant(
+        &self,
+        region: &mut Region<'_, F>,
+        constant: F,
+        offset: &mut usize,
+    ) -> Result<AssignedValue<F>, Error>;
+
     fn assign_value(
         &self,
         region: &mut Region<'_, F>,

@@ -94,6 +94,105 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         layouter.constrain_instance(value.cell(), config.instance, row)
     }
 
+    fn assign_constant(
+        &self,
+        region: &mut Region<'_, F>,
+        constant: F,
+        offset: &mut usize,
+    ) -> Result<AssignedValue<F>, Error> {
+        let (assigned, _, _, _, _) = self.combine(
+            region,
+            [
+                Term::unassigned_to_sub(Some(constant)),
+                Term::Zero,
+                Term::Zero,
+                Term::Zero,
+                Term::Zero,
+            ],
+            constant,
+            offset,
+            CombinationOptionCommon::OneLinerAdd.into(),
+        )?;
+        Ok(assigned)
+    }
+
+    fn assign_value(
+        &self,
+        region: &mut Region<'_, F>,
+        unassigned: &UnassignedValue<F>,
+        offset: &mut usize,
+    ) -> Result<AssignedValue<F>, Error> {
+        self.assign_to_column(region, unassigned, MainGateColumn::A, offset)
+    }
+
+    fn assign_to_column(
+        &self,
+        region: &mut Region<'_, F>,
+        unassigned: &UnassignedValue<F>,
+        column: MainGateColumn,
+        offset: &mut usize,
+    ) -> Result<AssignedValue<F>, Error> {
+        let column = match column {
+            MainGateColumn::A => self.config.a,
+            MainGateColumn::B => self.config.b,
+            MainGateColumn::C => self.config.c,
+            MainGateColumn::D => self.config.d,
+            MainGateColumn::E => self.config.e,
+        };
+        let cell = region.assign_advice(
+            || "assign value",
+            column,
+            *offset,
+            || unassigned.value().ok_or(Error::Synthesis),
+        )?;
+        // proceed to the next row
+        self.no_operation(region, offset)?;
+
+        Ok(unassigned.assign(cell.cell()))
+    }
+
+    fn assign_to_acc(
+        &self,
+        region: &mut Region<'_, F>,
+        unassigned: &UnassignedValue<F>,
+        offset: &mut usize,
+    ) -> Result<AssignedValue<F>, Error> {
+        self.assign_to_column(region, unassigned, MainGateColumn::E, offset)
+    }
+
+    fn assign_bit(
+        &self,
+        region: &mut Region<'_, F>,
+        bit: &UnassignedValue<F>,
+        offset: &mut usize,
+    ) -> Result<AssignedBit<F>, Error> {
+        // val * val - val  = 0
+
+        // Witness layout:
+        // | A   | B   | C   | D |
+        // | --- | --- | --- | - |
+        // | val | val | val | - |
+
+        let (a, b, c, _, _) = self.combine(
+            region,
+            [
+                Term::unassigned_to_mul(bit.value()),
+                Term::unassigned_to_mul(bit.value()),
+                Term::unassigned_to_sub(bit.value()),
+                Term::Zero,
+                Term::Zero,
+            ],
+            F::zero(),
+            offset,
+            CombinationOptionCommon::OneLinerMul.into(),
+        )?;
+
+        region.constrain_equal(a.cell(), b.cell())?;
+        region.constrain_equal(b.cell(), c.cell())?;
+
+        Ok(c.into())
+    }
+
     fn add(
         &self,
         region: &mut Region<'_, F>,
@@ -901,39 +1000,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok(res)
     }
 
-    fn assign_bit(
-        &self,
-        region: &mut Region<'_, F>,
-        bit: &UnassignedValue<F>,
-        offset: &mut usize,
-    ) -> Result<AssignedBit<F>, Error> {
-        // val * val - val  = 0
-
-        // Witness layout:
-        // | A   | B   | C   | D |
-        // | --- | --- | --- | - |
-        // | val | val | val | - |
-
-        let (a, b, c, _, _) = self.combine(
-            region,
-            [
-                Term::unassigned_to_mul(bit.value()),
-                Term::unassigned_to_mul(bit.value()),
-                Term::unassigned_to_sub(bit.value()),
-                Term::Zero,
-                Term::Zero,
-            ],
-            F::zero(),
-            offset,
-            CombinationOptionCommon::OneLinerMul.into(),
-        )?;
-
-        region.constrain_equal(a.cell(), b.cell())?;
-        region.constrain_equal(b.cell(), c.cell())?;
-
-        Ok(c.into())
-    }
-
     fn assert_bit(
         &self,
         region: &mut Region<'_, F>,
@@ -1340,50 +1406,6 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
         Ok((a_0, a_1, a_2, a_3, a_4))
     }
 
-    fn assign_value(
-        &self,
-        region: &mut Region<'_, F>,
-        unassigned: &UnassignedValue<F>,
-        offset: &mut usize,
-    ) -> Result<AssignedValue<F>, Error> {
-        self.assign_to_column(region, unassigned, MainGateColumn::A, offset)
-    }
-
-    fn assign_to_column(
-        &self,
-        region: &mut Region<'_, F>,
-        unassigned: &UnassignedValue<F>,
-        column: MainGateColumn,
-        offset: &mut usize,
-    ) -> Result<AssignedValue<F>, Error> {
-        let column = match column {
-            MainGateColumn::A => self.config.a,
-            MainGateColumn::B => self.config.b,
-            MainGateColumn::C => self.config.c,
-            MainGateColumn::D => self.config.d,
-            MainGateColumn::E => self.config.e,
-        };
-        let cell = region.assign_advice(
-            || "assign value",
-            column,
-            *offset,
-            || unassigned.value().ok_or(Error::Synthesis),
-        )?;
-        // proceed to the next row
-        self.no_operation(region, offset)?;
-
-        Ok(unassigned.assign(cell.cell()))
-    }
-
-    fn assign_to_acc(
-        &self,
-        region: &mut Region<'_, F>,
-        unassigned: &UnassignedValue<F>,
-        offset: &mut usize,
-    ) -> Result<AssignedValue<F>, Error> {
-        self.assign_to_column(region, unassigned, MainGateColumn::E, offset)
-    }
-
     fn nand(
         &self,
         region: &mut Region<'_, F>,
@@ -1566,6 +1588,7 @@ mod tests {
             }
         }
     }
+
     #[derive(Default)]
     struct TestCircuitPublicInputs<F: FieldExt> {
         _marker: PhantomData<F>,
