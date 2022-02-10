@@ -908,7 +908,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             _ => None,
         };
 
-        let (_, _, _, _, res) = self.combine(
+        let (a_val, _, c_val, _, res) = self.combine(
             region,
             [
                 Term::assigned_to_mul(&cond),
@@ -921,6 +921,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
             offset,
             CombinationOption::OneLinerDoubleNegMul.into(),
         )?;
+        region.constrain_equal(a_val.cell(), c_val.cell())?;
         Ok(res)
     }
 
