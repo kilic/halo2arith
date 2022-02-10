@@ -1074,6 +1074,7 @@ impl<F: FieldExt> MainGateInstructions<F, WIDTH> for MainGate<F> {
     ) -> Result<Vec<AssignedBit<F>>, Error> {
         use num_bigint::BigUint as big_uint;
         use num_traits::One;
+        assert!(number_of_bits <= F::NUM_BITS as usize);
 
         // Witness layout:
 
